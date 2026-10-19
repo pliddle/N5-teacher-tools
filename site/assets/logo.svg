@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="N5 Computing Science">
+  <!-- Placeholder mark: a chip with N5 on it. Replace this file with the real logo (square, transparent). -->
+  <g fill="#ffb300">
+    <rect x="30" y="2" width="8" height="16" rx="3"/><rect x="56" y="2" width="8" height="16" rx="3"/><rect x="82" y="2" width="8" height="16" rx="3"/>
+    <rect x="30" y="102" width="8" height="16" rx="3"/><rect x="56" y="102" width="8" height="16" rx="3"/><rect x="82" y="102" width="8" height="16" rx="3"/>
+    <rect x="2" y="30" width="16" height="8" rx="3"/><rect x="2" y="56" width="16" height="8" rx="3"/><rect x="2" y="82" width="16" height="8" rx="3"/>
+    <rect x="102" y="30" width="16" height="8" rx="3"/><rect x="102" y="56" width="16" height="8" rx="3"/><rect x="102" y="82" width="16" height="8" rx="3"/>
+  </g>
+  <rect x="14" y="14" width="92" height="92" rx="18" fill="#ffffff"/>
+  <text x="60" y="76" text-anchor="middle" font-family="Atkinson Hyperlegible, DejaVu Sans, sans-serif" font-weight="700" font-size="46" fill="#0b5cad">N5</text>
+</svg>

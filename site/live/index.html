@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: live quiz, the teacher's screen - N5 Computing Science
+  Spec topic ids: all topics in the question bank (each game uses the questions the teacher picks).
+  Pick a unit, topics and questions; choose a theme and a time; pupils join on their own devices at /play with the
+  code or the QR code and get a random computing-themed name. Points for right answers and speed, streak bonuses,
+  a leaderboard after each question and a podium at the end, on this screen and on every pupil's screen.
+  Runs on the teachers server (tools/teachers-server/live.js). Holds nothing about pupils after the game.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live quiz · N5 Computing teacher tools</title>
+<meta name="description" content="Free live quiz for N5 Computing Science classes: pupils join on any device with a code and answer exam-style questions from the course, with an optional leaderboard.">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/teach.css">
+<link rel="stylesheet" href="/assets/live.css">
+<style>
+  /* Setup (normal teacher-tools look) */
+  .setup { max-width:76rem; margin:0 auto; }
+  .setup h2 { font-size:1.25rem; margin:1.1rem 0 .5rem; }
+  .units { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .topics { display:flex; flex-wrap:wrap; gap:.4rem; }
+  .topics button { font-weight:600; min-height:2.3rem; }
+  .qlist { background:#fff; border:1px solid var(--line); border-radius:.8rem; max-height:26rem; overflow:auto; }
+  .qrow { display:flex; gap:.6rem; align-items:flex-start; padding:.4rem .8rem; border-bottom:1px solid #e3e7ec; }
+  .qrow input { width:1.2rem; height:1.2rem; margin-top:.25rem; flex:none; }
+  .qrow details { flex:1; min-width:0; }
+  .qrow summary { cursor:pointer; list-style:none; }
+  .qrow summary::-webkit-details-marker { display:none; }
+  .qrow .meta { font-size:.75rem; color:var(--muted); }
+  .qrow .full { margin:.4rem 0; padding:.5rem; background:var(--panel); border-radius:.5rem; font-size:.9rem; }
+  .qrow .full li.ok { font-weight:700; color:var(--good); }
+  .qtools { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.5rem 0; }
+  .themes { display:grid; gap:.7rem; grid-template-columns:repeat(auto-fill,minmax(12rem,1fr)); }
+  .themecard { flex-direction:column; align-items:stretch; padding:0; overflow:hidden; text-align:left; min-height:auto; }
+  .themecard .sw { height:4.5rem; display:grid; place-items:center; font:700 1.2rem ui-monospace,monospace; letter-spacing:.1em; }
+  .themecard span { padding:.4rem .7rem 0; }
+  .themecard small { padding:0 .7rem .5rem; font-weight:400; color:var(--muted); }
+  .themecard[aria-pressed="true"] { outline:4px solid var(--amber); outline-offset:2px; background:#fff; color:var(--accent); }
+  .opts2 { display:flex; flex-wrap:wrap; gap:.6rem 1.6rem; align-items:center; }
+  .opts2 label { display:inline-flex; align-items:center; gap:.4rem; min-height:2.4rem; font-weight:600; }
+  .create { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin:1.2rem 0 2.5rem; }
+  .create .big { font-size:1.3rem; padding:.7rem 2rem; }
+
+  /* The game screens */
+  .live { min-height:100vh; display:flex; flex-direction:column; padding:.8rem 1.2rem 1.2rem; gap:1rem; }
+  .strip { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; font-weight:700; }
+  .strip .grow { flex:1; }
+  .strip .lbtn { font-size:.9rem; min-height:2.2rem; padding:.2rem .7rem; }
+  .pill { background:var(--panel); color:var(--panel-fg); border:2px solid var(--edge); border-radius:999px; padding:.2rem .8rem; }
+  body[data-theme="desktop"] .pill { border-radius:0; }
+  .lobby { display:grid; gap:1.2rem; grid-template-columns:minmax(0,1fr); align-items:start; }
+  @media (min-width:1000px) { .lobby { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); } }
+  .joinbox { text-align:center; }
+  .joinbox .url { font-size:1.6rem; font-weight:700; word-break:break-all; }
+  .bigcode { font:900 clamp(3.5rem,9vw,7.5rem)/1 ui-monospace,"DejaVu Sans Mono",monospace; letter-spacing:.08em; margin:.6rem 0; }
+  .qr { width:min(15rem,40vw); margin:.4rem auto 0; background:#fff; padding:.4rem; border-radius:.5rem; }
+  .qr svg { display:block; width:100%; height:auto; }
+  .players { display:flex; flex-wrap:wrap; gap:.6rem; align-content:flex-start; }
+  .players .player { font-size:1.1rem; cursor:pointer; }
+  .players .player:hover { text-decoration:line-through; }
+  .count { font-size:2.2rem; font-weight:900; }
+  .qhead { display:flex; flex-wrap:wrap; gap:1rem; align-items:center; }
+  .timer { width:5.5rem; height:5.5rem; flex:none; position:relative; }
+  .timer svg { width:100%; height:100%; transform:rotate(-90deg); }
+  .timer b { position:absolute; inset:0; display:grid; place-items:center; font-size:2rem; }
+  .timer.low b { color:#ff595e; }
+  .answered { text-align:center; }
+  .answered b { display:block; font-size:2.6rem; line-height:1; }
+  .typed { text-align:center; font-size:1.5rem; }
+  .typed .ans { display:inline-block; margin-top:.4rem; background:#1e8a2d; color:#fff; padding:.3rem 1.4rem; border-radius:var(--radius); font:700 2.4rem ui-monospace,monospace; }
+  .why { font-size:1.15rem; }
+  .why .exam-report { font-size:.85em; opacity:.9; border-top:1px solid currentColor; margin-top:.5em; padding-top:.4em; }
+  .board { display:flex; flex-direction:column; gap:.6rem; max-width:60rem; width:100%; margin:0 auto; }
+  .brow { display:flex; align-items:center; gap:1rem; font-size:1.5rem; font-weight:700; }
+  .brow .rk { width:2.5rem; text-align:center; font-size:1.8rem; }
+  .brow .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .brow .mv { font-size:1rem; width:3rem; }
+  .brow .mv.up { color:#5ee08a; } .brow .mv.down { color:#ff8fa3; }
+  .brow .st { font-size:1.1rem; }
+  .brow .sc { font-variant-numeric:tabular-nums; min-width:6ch; text-align:right; }
+  .podium { display:flex; justify-content:center; align-items:flex-end; gap:1rem; margin-top:1rem; }
+  .podium .place { display:flex; flex-direction:column; align-items:center; gap:.4rem; width:min(16rem,30vw); text-align:center; }
+  .podium .block { width:100%; display:grid; place-items:center; font:900 3rem ui-monospace,monospace; color:var(--accent-fg); background:var(--accent); border:3px solid var(--edge); border-radius:var(--radius) var(--radius) 0 0; }
+  .podium .p1 .block { height:13rem; } .podium .p2 .block { height:9rem; } .podium .p3 .block { height:6rem; }
+  @media (max-height:820px) { .podium .p1 .block { height:7rem; } .podium .p2 .block { height:5rem; } .podium .p3 .block { height:3.5rem; }
+    .podium .block { font-size:2rem; } .full { max-height:30vh; } }
+  .podium .nm { font-size:1.35rem; font-weight:800; }
+  .podium .sc { font-size:1.1rem; opacity:.9; }
+  .full { max-width:50rem; width:100%; margin:1rem auto 0; max-height:40vh; overflow:auto; }
+  .full table { width:100%; border-collapse:collapse; font-size:1rem; }
+  .full td, .full th { padding:.3rem .5rem; text-align:left; border-bottom:1px solid rgba(127,127,127,.35); }
+  .actions { display:flex; flex-wrap:wrap; gap:.7rem; justify-content:center; }
+  .center { text-align:center; }
+  .err { color:#ffb3b3; font-weight:700; }
+</style>
+</head>
+<body>
+<header class="bar" id="bar"></header>
+<main class="tool setup" id="setup">
+  <p class="muted" style="max-width:52rem">Pupils join on a phone, tablet or laptop with the code shown on the board. Each gets a random computing-themed name, so nobody types a name and nothing about them is kept. Answer fast for more points; answer right in a row for a streak bonus.</p>
+  <h2>1. Unit</h2><div class="units" id="units">Loading the questions…</div>
+  <div id="pickers" hidden>
+    <h2>2. Topics</h2><div class="topics" id="topics"></div>
+    <h2>3. Questions <span class="muted" style="font-size:.9rem;font-weight:400">untick any you don't want; click a question to read it</span></h2>
+    <div class="qtools"><button type="button" id="all">Tick all</button><button type="button" id="none">Untick all</button>
+      <button type="button" id="rand10">Pick 10 at random</button><span id="picked" role="status" aria-live="polite" style="font-weight:700"></span></div>
+    <div class="qlist" id="qlist"></div>
+    <p class="muted" style="font-size:.85rem">Only multiple-choice, true/false, number and one-word questions are listed: matching, ordering and fill-the-gap questions need the starter tool instead.</p>
+    <h2>4. Theme</h2><div class="themes" id="themes"></div>
+    <h2>5. Settings</h2>
+    <div class="opts2">
+      <label for="time">Time for each question <select id="time"><option value="10">10 seconds</option><option value="20" selected>20 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">1 minute</option><option value="90">1½ minutes</option><option value="0">No limit (I close each one)</option></select></label>
+      <label><input type="checkbox" id="boards" checked> Leaderboard after each question</label>
+      <label><input type="checkbox" id="discuss"> Vote, discuss, vote again</label>
+      <label><input type="checkbox" id="shuffle"> Shuffle the question order</label>
+      <label><input type="checkbox" id="sound" checked> Sound effects</label>
+    </div>
+    <div class="opts2" style="margin-top:.4rem">
+      <label><input type="checkbox" id="names"> Pupils also type their real name, for a results spreadsheet</label>
+    </div>
+    <p class="muted" style="font-size:.85rem;max-width:52rem;margin:.2rem 0 0"><strong>Vote, discuss, vote again</strong> (peer instruction): everyone answers, the class sees how the votes split without being told which is right, pupils turn to a neighbour and argue their case, then everyone votes again. Only the second vote scores, and the reveal shows how many changed their mind. Each question takes about twice as long.</p>
+    <p class="muted" style="font-size:.85rem;max-width:52rem;margin:.2rem 0 0">Real names are never shown on the board or on other pupils' screens: everyone still plays under a random name. The real name goes only into the spreadsheet you download at the end, and the game forgets it when you close the game. You can download a spreadsheet without real names too. <a href="/privacy/" target="_blank">Privacy notice</a>: check names fit your school's data policy.</p>
+    <div class="create"><button type="button" class="primary big" id="create">Create the game</button><span id="cerr" class="muted" role="alert"></span></div>
+  </div>
+</main>
+
+<div class="live" id="game" hidden>
+  <div class="strip">
+    <span class="pill" id="s-code"></span><span class="pill" id="s-q"></span><span class="pill" id="s-players"></span><span class="grow"></span>
+    <button type="button" class="lbtn ghost" id="b-link" title="Copy the join link, for pupils on computers">🔗 Copy link</button>
+    <button type="button" class="lbtn ghost" id="b-music" aria-pressed="false">♫ Music</button>
+    <button type="button" class="lbtn ghost" id="b-sound" aria-pressed="true">🔊 Sound</button>
+    <button type="button" class="lbtn ghost" id="b-full">⛶ Full screen</button>
+    <button type="button" class="lbtn ghost" id="b-end">End game</button>
+  </div>
+  <div id="screen" style="flex:1;display:flex;flex-direction:column;gap:1rem"></div>
+</div>
+
+<script src="/assets/teach.js"></script>
+<script src="/assets/qr.js"></script>
+<script src="/assets/live-common.js"></script>
+<script>
+"use strict";
+const { $, esc, shuffle } = Teach;
+Teach.bar("Live quiz");
+const LIVE = new Set(["mc", "multi", "tf", "num", "short"]);
+const TYPE = { mc: "Multiple choice", multi: "Select all", tf: "True or false", num: "Number", short: "One word" };
+let DATA, unit = null, theme = "arcade", game = null, es = null, st = null, offset = 0, ticker = null, lastPhase = "", lastQi = -1, seen = new Set();
+const SAVE = "n5t-live-host";
+
+/* ================= Setup ================= */
+fetch("/data/questions.json").then(r => r.json()).then(d => {
+  DATA = d;
+  $("units").innerHTML = d.units.map((u, i) => '<button type="button" data-u="' + i + '" aria-pressed="false">' + esc(u.title) + "</button>").join("");
+  $("themes").innerHTML = Object.entries(Live.THEMES).map(([k, t]) => '<button type="button" class="themecard" data-theme="' + k + '" aria-pressed="' + (k === theme) + '"><div class="sw ' + k + '">' +
+    { arcade: "▲ HI-SCORE", binary: "01101", circuit: "◆─●─■", space: "★ · ✦ ·", desktop: "▣ OK" }[k] + "</div><span>" + esc(t.name) + "</span><small>" + esc(t.about) + "</small></button>").join("");
+  const sw = { arcade: "background:linear-gradient(180deg,#12002b,#4a0063);color:#00f0ff;text-shadow:2px 2px 0 #ff00aa", binary: "background:#020a04;color:#00ff66;text-shadow:0 0 8px #00ff66",
+    circuit: "background:#06142a;color:#00f5d4", space: "background:linear-gradient(160deg,#050826,#1a0b3d);color:#ffd166", desktop: "background:#008080;color:#fff;font-family:Tahoma,sans-serif" };
+  document.querySelectorAll(".themecard .sw").forEach(el => { el.style.cssText = sw[el.className.split(" ")[1]]; });
+  const saved = JSON.parse(sessionStorage.getItem(SAVE) || "null");
+  if (saved) resume(saved);
+}).catch(() => { $("units").textContent = "The questions did not load. Reload the page to try again."; });
+
+$("units").addEventListener("click", e => {
+  const b = e.target.closest("[data-u]"); if (!b) return;
+  unit = DATA.units[b.dataset.u];
+  document.querySelectorAll("#units button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  $("topics").innerHTML = unit.topics.map((t, i) => { const n = t.questions.filter(q => LIVE.has(q.type)).length;
+    return n ? '<button type="button" data-t="' + i + '" aria-pressed="false">' + esc(t.title) + " (" + n + ")</button>" : ""; }).join("");
+  $("pickers").hidden = false; $("qlist").innerHTML = '<p class="muted" style="padding:.8rem">Choose one or more topics.</p>'; picked();
+});
+$("topics").addEventListener("click", e => {
+  const b = e.target.closest("[data-t]"); if (!b) return;
+  b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); listQuestions();
+});
+const plain = h => { const d = document.createElement("div"); d.innerHTML = h; d.querySelectorAll("pre").forEach(p => { p.textContent = " [code] "; }); return d.textContent.replace(/\s+/g, " ").trim(); };
+function listQuestions() {
+  const ts = [...document.querySelectorAll("#topics [aria-pressed=true]")].map(b => unit.topics[b.dataset.t]);
+  const qs = ts.flatMap(t => t.questions.filter(q => LIVE.has(q.type)));
+  $("qlist").innerHTML = qs.length ? qs.map(q => '<div class="qrow"><input type="checkbox" checked data-id="' + q.id + '" aria-label="Use ' + q.id + '"><details><summary>' + esc(plain(q.q).slice(0, 170)) +
+    '<div class="meta">' + q.id + " · " + TYPE[q.type] + " · " + (q.level === "A" ? "A (harder)" : "C (core)") + " · Set " + q.set + '</div></summary><div class="full">' + q.q +
+    (q.opts ? "<ul>" + q.opts.map(o => '<li class="' + (o.ok ? "ok" : "") + '">' + o.h + (o.ok ? " ✓" : "") + "</li>").join("") + "</ul>" : "<p><b>Answer:</b> " + esc(q.type === "num" ? q.num.v : q.short.join(" or ")) + "</p>") +
+    "</div></details></div>").join("") : '<p class="muted" style="padding:.8rem">Choose one or more topics.</p>';
+  picked();
+}
+function picked() {
+  const n = document.querySelectorAll("#qlist input:checked").length;
+  $("picked").textContent = n ? n + " question" + (n === 1 ? "" : "s") + " picked" + (n > 60 ? ": a game can have up to 60, so untick some" : "") : "";
+  $("create").disabled = !n || n > 60;
+}
+$("qlist").addEventListener("change", picked);
+$("all").onclick = () => { document.querySelectorAll("#qlist input").forEach(x => { x.checked = true; }); picked(); };
+$("none").onclick = () => { document.querySelectorAll("#qlist input").forEach(x => { x.checked = false; }); picked(); };
+$("rand10").onclick = () => { const all = [...document.querySelectorAll("#qlist input")], keep = new Set(shuffle(all).slice(0, 10)); all.forEach(x => { x.checked = keep.has(x); }); picked(); };
+$("themes").addEventListener("click", e => { const b = e.target.closest("[data-theme]"); if (!b) return; theme = b.dataset.theme; document.querySelectorAll(".themecard").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+$("create").onclick = async () => {
+  let ids = [...document.querySelectorAll("#qlist input:checked")].map(x => x.dataset.id);
+  if ($("shuffle").checked) ids = shuffle(ids);
+  Live.audio();                                      // a click is needed before the browser allows sound
+  Live.setMuted(!$("sound").checked);
+  await create({ ids, theme, time: Number($("time").value), boards: $("boards").checked, names: $("names").checked, discuss: $("discuss").checked });
+};
+async function create(cfg) {
+  $("cerr").textContent = "";
+  try { const r = await Live.post("/api/games", cfg); start({ ...cfg, code: r.code, key: r.key }); }
+  catch (e) { $("cerr").textContent = e.message; }
+}
+
+
+/* ================= The game ================= */
+function start(g) { game = g; sessionStorage.setItem(SAVE, JSON.stringify(g)); lastPhase = ""; seen = new Set(); open(); }
+function resume(g) { game = g; open(); }
+function open() {
+  $("setup").hidden = true; $("bar").hidden = true; $("game").hidden = false;
+  Live.background(game.theme);
+  $("b-sound").setAttribute("aria-pressed", String(!Live.isMuted()));
+  if (es) es.close();
+  es = Live.listen("/api/games/" + game.code + "/host?key=" + encodeURIComponent(game.key), s => { offset = s.now - Date.now(); st = s; draw(); },
+    () => fetch("/api/games/" + game.code).then(r => { if (r.status === 404) { es.close(); gone(); } }).catch(() => {}));
+}
+function gone() {
+  sessionStorage.removeItem(SAVE); Live.stopMusic();
+  $("screen").innerHTML = '<div class="win center rise" style="margin:auto;max-width:40rem"><div class="title">Game over</div><h1>This game has closed.</h1><p>Games close after 45 minutes without any activity.</p><button type="button" class="lbtn" onclick="location.reload()">Set up a new game</button></div>';
+}
+const joinURL = () => location.origin + "/play/?c=" + game.code;
+const tile = (i, html, extra) => '<div class="tile t' + i + '" data-i="' + i + '"><span class="shape" aria-hidden="true">' + Live.TILES[i].shape + "<small>" + Live.LETTERS[i] + '</small></span><span class="txt">' + html + "</span>" + (extra || "") + "</div>";
+
+function draw() {
+  const s = st, sc = $("screen"), fresh = s.phase !== lastPhase || s.qi !== lastQi;
+  $("s-code").textContent = "Code " + s.code; $("s-players").textContent = s.players.length + (s.players.length === 1 ? " player" : " players");
+  $("s-q").textContent = s.qi >= 0 ? "Question " + (s.qi + 1) + " of " + s.n : s.n + " questions";
+  $("b-end").hidden = s.phase === "end";
+  if (s.phase !== "lobby") Live.stopMusic(), $("b-music").setAttribute("aria-pressed", "false");
+  clearInterval(ticker);
+  if (s.phase === "lobby") {
+    if (fresh) sc.innerHTML = '<div class="lobby"><div class="win joinbox rise"><div class="title">Join the game</div><h2 style="margin:.2rem 0">Join at</h2><div class="url">' + esc(location.host) + '/play</div>' +
+      '<div class="bigcode" aria-label="Game code">' + s.code.slice(0, 3) + " " + s.code.slice(3) + '</div><div class="qr">' + QR.svg(joinURL()) + '</div><p style="margin:.4rem 0 .6rem">or scan the code</p>' +
+      '<div class="actions"><button type="button" class="lbtn ghost" id="b-copy" title="' + esc(joinURL()) + '">🔗 Copy the join link</button></div><p id="copied" role="status" style="margin:.3rem 0 0;min-height:1.3em;font-size:.9rem"></p>' +
+      (game.names ? '<p style="margin:.2rem 0 0;font-size:.95rem">Pupils will be asked for their name. It stays off the board: only you see it, in the spreadsheet.</p>' : "") + "</div>" +
+      '<div class="win rise" style="animation-delay:.1s"><div class="title">Players</div><div class="count" id="pcount"></div><div class="players" id="plist" aria-live="polite"></div>' +
+      '<p style="opacity:.8;font-size:.9rem">Click a name to remove it from the game.</p><div class="actions" style="justify-content:flex-start;margin-top:1rem"><button type="button" class="lbtn" id="b-start">Start the game ▶</button></div></div></div>';
+    $("pcount").textContent = s.players.length ? s.players.length + (s.players.length === 1 ? " player is in" : " players are in") : "Waiting for players…";
+    const known = new Set([...$("plist").children].map(c => c.dataset.pid));
+    $("plist").innerHTML = s.players.map(p => '<button type="button" class="player' + (known.has(p.pid) ? "" : " pop") + '" data-pid="' + p.pid + '" title="Remove ' + esc(p.name) + '">' + Live.avatar(p.avatar, 34) + esc(p.name) + "</button>").join("");
+    if (s.players.some(p => !seen.has(p.pid)) && !fresh) Live.play("join");
+    s.players.forEach(p => seen.add(p.pid));
+    $("b-start").disabled = !s.players.length;
+  }
+  else if (s.phase === "question") {
+    const q = s.question;
+    if (fresh) {
+      Live.play("start");
+      sc.innerHTML = '<div class="qhead"><div class="timer" id="timer"></div><div class="win" style="flex:1;padding:.5rem 1rem"><div class="title">' + esc(q.topic) + '</div><span style="opacity:.85">' + esc(q.topic) + (q.type === "multi" ? " · <b>Select all that apply</b>" : "") +
+        '</span></div>' + (q.discuss ? '<div class="pill">' + (q.round === 2 ? "Second vote" : "First vote") + "</div>" : "") +
+        '<div class="answered win"><b id="nans">0</b>answered</div></div><div class="win qhtml rise">' + q.html + "</div>" +
+        (q.opts ? '<div class="tiles">' + q.opts.map((o, i) => tile(i, o)).join("") + "</div>" : '<div class="win typed rise">Type your answer on your device.</div>') +
+        '<div class="actions"><button type="button" class="lbtn" id="b-reveal">' + (s.time ? "Close the question now" : "Close the question") + "</button></div>";
+      fitText(sc.querySelector(".qhtml"));
+    }
+    $("nans").textContent = s.answered + " / " + s.players.length;
+    if (s.answered > (draw.lastAns || 0) && !fresh) Live.play("answer");
+    draw.lastAns = s.answered;
+    clock(q);
+  }
+  else if (s.phase === "discuss") {
+    const q = s.question, sp = s.spread, max = Math.max(1, ...sp.counts);
+    if (fresh) {
+      Live.play("board");
+      sc.innerHTML = '<div class="qhead"><div class="win" style="flex:1;padding:.5rem 1rem"><div class="title">Talk it over</div><b style="font-size:1.4rem">' +
+        sp.answered + " of " + sp.players + ' answered. Nobody is told yet which answer is right.</b></div></div><div class="win qhtml">' + q.html + "</div>" +
+        (q.opts ? '<div class="tiles">' + q.opts.map((o, i) => tile(i, o, '<span class="count">' + sp.counts[i] + '</span><span class="bar" style="width:0"></span>')).join("") + "</div>"
+          : '<div class="win typed">Everyone has written an answer.</div>') +
+        '<div class="win rise" style="font-size:1.3rem"><div class="title">Now</div><strong>Turn to the person next to you.</strong> Say which answer you chose and why. If you disagree, try to convince each other. Then everyone votes again.</div>' +
+        '<div class="actions"><button type="button" class="lbtn" id="b-revote">Vote again ▶</button></div>';
+      fitText(sc.querySelector(".qhtml"));
+      if (q.opts) requestAnimationFrame(() => sc.querySelectorAll(".tile .bar").forEach((b, i) => { b.style.width = (100 * sp.counts[i] / max) + "%"; }));
+      $("b-revote").focus();
+    }
+  }
+  else if (s.phase === "reveal") {
+    const q = s.question, r = s.results, max = Math.max(1, ...r.counts);
+    if (fresh) {
+      Live.play("reveal");
+      sc.innerHTML = '<div class="qhead"><div class="win" style="flex:1;padding:.5rem 1rem"><div class="title">Results</div><b style="font-size:1.4rem">' + r.correct + " of " + r.answered + " got it right</b>" +
+        (r.answered < r.players ? ' <span style="opacity:.85">(' + (r.players - r.answered) + " didn't answer)</span>" : "") +
+        (r.first ? '<br><span style="font-size:1.05rem">Before talking it over, ' + r.firstCorrect + " had it right; after, " + r.correct + ".</span>" : "") + '</div></div><div class="win qhtml">' + q.html + "</div>" +
+        (q.opts ? '<div class="tiles">' + q.opts.map((o, i) => tile(i, o, '<span class="count">' + (r.first ? r.first[i] + " → " : "") + r.counts[i] + '</span><span class="bar" style="width:0"></span>')).join("") + "</div>"
+          : '<div class="win typed">The answer: <span class="ans">' + esc(r.answer) + "</span></div>") +
+        '<div class="win why rise"><div class="title">Why</div>' + (r.fb || "") + "</div>" +
+        '<div class="actions"><button type="button" class="lbtn" id="b-after">' + (game.boards !== false ? "Leaderboard ▶" : s.qi + 1 < s.n ? "Next question ▶" : "Final results ▶") + "</button></div>";
+      fitText(sc.querySelector(".qhtml"));
+      if (q.opts) requestAnimationFrame(() => sc.querySelectorAll(".tile").forEach((t, i) => {
+        t.classList.add(r.right[i] ? "right" : "wrong"); t.querySelector(".bar").style.width = (100 * r.counts[i] / max) + "%"; }));
+      $("b-after").focus();
+    }
+  }
+  else if (s.phase === "board") {
+    if (fresh) {
+      Live.play("board");
+      sc.innerHTML = '<div class="board"><h1 class="center" style="margin:.2rem 0">Leaderboard</h1>' + s.players.slice(0, 5).map((p, i) => {
+        const mv = p.prev ? p.prev - p.rank : 0;
+        return '<div class="brow win rise" style="animation-delay:' + (i * .12) + 's"><span class="rk">' + p.rank + "</span>" + Live.avatar(p.avatar, 44) + '<span class="nm">' + esc(p.name) + "</span>" +
+          '<span class="mv ' + (mv > 0 ? "up" : mv < 0 ? "down" : "") + '">' + (mv > 0 ? "▲" + mv : mv < 0 ? "▼" + -mv : "") + "</span>" +
+          '<span class="st">' + (p.streak >= 2 ? "🔥 " + p.streak : "") + '</span><span class="sc" data-to="' + p.score + '">0</span></div>'; }).join("") +
+        '</div><div class="actions"><button type="button" class="lbtn" id="b-next">' + (s.qi + 1 < s.n ? "Next question ▶" : "Final results ▶") + "</button></div>";
+      countUp(sc); $("b-next").focus();
+    }
+  }
+  else if (s.phase === "end") {
+    if (fresh) {
+      const top = s.players.slice(0, 3), place = (p, k) => p ? '<div class="place p' + k + ' rise" style="animation-delay:' + ((3 - k) * .5) + 's">' + Live.avatar(p.avatar, k === 1 ? 110 : 84).replace('class="av"', 'class="av bob"') +
+        '<span class="nm">' + esc(p.name) + '</span><span class="sc">' + p.score + ' points</span><div class="block">' + k + "</div></div>" : "";
+      sc.innerHTML = '<h1 class="center" style="margin:.2rem 0">Final results</h1><div class="podium">' + place(top[1], 2) + place(top[0], 1) + place(top[2], 3) + "</div>" +
+        '<div class="actions" style="margin-top:1rem"><button type="button" class="lbtn" id="b-csv">⬇ Download the results (spreadsheet)</button>' +
+        '<button type="button" class="lbtn ghost" id="b-again">Play again with the same questions</button>' +
+        '<button type="button" class="lbtn ghost" id="b-new">Set up a new game</button></div>' +
+        '<div class="win full"><div class="title">Everyone</div><table><thead><tr><th>Place</th><th>Name</th><th>Points</th><th>Right</th><th>Best streak</th></tr></thead><tbody>' +
+        s.players.map(p => "<tr><td>" + Live.ordinal(p.rank) + "</td><td>" + esc(p.name) + "</td><td>" + p.score + "</td><td>" + p.correct + " of " + s.n + "</td><td>" + p.best + "</td></tr>").join("") +
+        '</tbody></table></div>';
+      setTimeout(() => { Live.play("fanfare"); Live.confetti(sc.querySelector(".p1")); }, 1100);
+    }
+  }
+  lastPhase = s.phase; lastQi = s.qi;
+}
+function clock(q) {
+  const el = $("timer");
+  if (!q.deadline) { el.innerHTML = '<b style="font-size:1.2rem;text-align:center">No<br>limit</b>'; return; }
+  let lastSec = null;
+  const tick = () => {
+    const left = Math.max(0, q.deadline - 600 - (Date.now() + offset)), sec = Math.ceil(left / 1000), frac = left / (q.time * 1000);
+    el.innerHTML = '<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16" fill="none" stroke="rgba(127,127,127,.35)" stroke-width="4"/><circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="' +
+      (100.5 * frac) + ' 200"/></svg><b>' + sec + "</b>";
+    el.classList.toggle("low", sec <= 5);
+    if (sec !== lastSec && sec <= 5 && sec > 0 && lastSec !== null) Live.play("tick");
+    lastSec = sec;
+  };
+  tick(); ticker = setInterval(tick, 200);
+}
+function countUp(root) {
+  root.querySelectorAll("[data-to]").forEach(el => {
+    const to = Number(el.dataset.to), t0 = performance.now(), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const f = t => { const k = still ? 1 : Math.min(1, (t - t0) / 1200); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+  });
+}
+// Long questions get smaller text so the answers still fit on the screen.
+function fitText(box) {
+  if (!box) return; let s = 1.6; box.style.fontSize = s + "rem";
+  while (document.documentElement.scrollHeight > innerHeight + 2 && s > 1) { s -= .05; box.style.fontSize = s + "rem"; }
+}
+const act = (action, extra) => Live.post("/api/games/" + game.code + "/host", { key: game.key, action, ...(extra || {}) }).catch(e => alert(e.message));
+$("screen").addEventListener("click", e => {
+  const id = e.target.closest("button") && e.target.closest("button").id;
+  if (id === "b-start") act("start");
+  else if (id === "b-reveal") act("reveal");
+  else if (id === "b-revote") act("revote");
+  else if (id === "b-after") act(game.boards !== false ? "board" : "next");
+  else if (id === "b-next") act("next");
+  else if (id === "b-again") { act("close"); es.close(); create({ ids: game.ids, theme: game.theme, time: game.time, boards: game.boards, names: game.names, discuss: game.discuss }); }
+  else if (id === "b-copy") copyLink(e.target.closest("button"));
+  else if (id === "b-csv") download();
+  // Close the old game, then reload. (Reloading straight away cancelled the request, and act() then showed a
+  // "Failed to fetch" alert that held up the reload.) A failure does not matter here: old games close themselves.
+  else if (id === "b-new") { sessionStorage.removeItem(SAVE); Live.post("/api/games/" + game.code + "/host", { key: game.key, action: "close" }).catch(() => {}).finally(() => location.reload()); }
+  const p = e.target.closest(".player[data-pid]");
+  if (p && st.phase === "lobby" && confirm("Remove " + p.textContent.trim() + " from the game?")) act("kick", { pid: p.dataset.pid });
+});
+// Copy the join link, for classes on computers (the link includes the code). Clipboard access needs HTTPS:
+// elsewhere (the development server) the link is selected for Ctrl+C instead.
+async function copyLink(btn) {
+  const say = t => { if ($("copied")) $("copied").textContent = t; if (btn && t.startsWith("Copied")) { const was = btn.dataset.label || btn.textContent; btn.dataset.label = was; btn.textContent = "✓ Copied"; setTimeout(() => { btn.textContent = was; }, 2000); } };
+  try { await navigator.clipboard.writeText(joinURL()); say("Copied: " + joinURL() + ". Paste it into Teams, Google Classroom or an email."); }
+  catch (e) {
+    const t = document.createElement("textarea"); t.value = joinURL(); document.body.appendChild(t); t.select();
+    const ok = document.execCommand && document.execCommand("copy"); t.remove();
+    say(ok ? "Copied: " + joinURL() : "Copy this link: " + joinURL());
+  }
+}
+// The results as a CSV file that Excel, Numbers and Google Sheets open as a spreadsheet: one row per pupil, then a
+// summary of each question.
+async function download() {
+  let r;
+  try { const res = await fetch("/api/games/" + game.code + "/results?key=" + encodeURIComponent(game.key)); if (!res.ok) throw new Error(); r = await res.json(); }
+  catch (e) { return alert("The results could not be fetched. Is the game still open?"); }
+  const plain = h => { const d = document.createElement("div"); d.innerHTML = h; return d.textContent.replace(/\s+/g, " ").trim(); };
+  // Text that a spreadsheet would treat as a formula is started with an apostrophe.
+  const cell = v => { let t = v === null || v === undefined ? "" : String(v); if (/^[=+\-@\t\r]/.test(t) && isNaN(Number(t))) t = "'" + t;
+    return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const qs = r.questions.slice(0, Math.max(r.played, 0)), rows = [];
+  rows.push(["N5 Computing Science live quiz", new Date(r.started).toLocaleString("en-GB"), qs.length + " questions played"]);
+  rows.push([]);
+  rows.push(["Place"].concat(r.names ? ["Name"] : [], ["Game name", "Points", "Right", "Out of", "Best streak"],
+    r.discuss ? ["Right before discussing"] : [],
+    qs.flatMap((q, i) => ["Q" + (i + 1) + " right", "Q" + (i + 1) + " answer", "Q" + (i + 1) + " seconds"])));
+  for (const p of r.players) rows.push([p.rank].concat(r.names ? [p.real] : [], [p.name, p.score, p.correct, qs.length, p.best],
+    r.discuss ? [p.firstCorrect] : [],
+    qs.flatMap((q, i) => { const a = p.answers[i]; return a ? [a.correct ? 1 : 0, plain(a.text), (a.ms / 1000).toFixed(1)] : ["", "(no answer)", ""]; })));
+  rows.push([]);
+  rows.push(["Question", "ID", "Topic", "Question text", "Right answer", "Number right", "Answered", "Percentage right"]);
+  qs.forEach((q, i) => { const got = r.players.map(p => p.answers[i]).filter(Boolean), right = got.filter(a => a.correct).length;
+    rows.push(["Q" + (i + 1), q.id, q.topic, plain(q.html), plain(q.answer), right, got.length, r.players.length ? Math.round(100 * right / r.players.length) + "%" : ""]); });
+  const csv = "\ufeff" + rows.map(row => row.map(cell).join(",")).join("\r\n") + "\r\n";
+  const d = new Date(), stamp = d.toISOString().slice(0, 10) + "-" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = "live-quiz-results-" + stamp + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$("b-link").onclick = e => copyLink(e.currentTarget);
+$("b-end").onclick = () => { if (confirm("End the game now and show the final results?")) act("end"); };
+$("b-full").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
+$("b-sound").onclick = e => { const on = e.currentTarget.getAttribute("aria-pressed") !== "true"; e.currentTarget.setAttribute("aria-pressed", String(on)); Live.setMuted(!on); if (!on) $("b-music").setAttribute("aria-pressed", "false"); };
+$("b-music").onclick = e => { const on = e.currentTarget.getAttribute("aria-pressed") !== "true"; if (on && Live.isMuted()) return; e.currentTarget.setAttribute("aria-pressed", String(on)); on ? Live.startMusic() : Live.stopMusic(); };
+document.addEventListener("keydown", e => {
+  if ($("game").hidden || e.target.closest("input, select, textarea")) return;
+  if ((e.key === " " || e.key === "Enter" || e.key === "ArrowRight") && !e.target.closest("button")) {
+    const b = $("b-start") || $("b-reveal") || $("b-revote") || $("b-after") || $("b-next"); if (b && !b.disabled && document.body.contains(b)) { e.preventDefault(); b.click(); }
+  }
+});
+</script>
+</body>
+</html>

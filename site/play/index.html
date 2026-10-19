@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: live quiz, the pupils' screen - N5 Computing Science
+  Spec topic ids: as the game's questions.
+  Join with the game code; get a random computing-themed name and pixel avatar (no name is typed); answer on this
+  device; see points, streaks and your place after each question and at the end. Built for phones first.
+  Runs on the teachers server (tools/teachers-server/live.js). No account, no cookies; the join details are kept
+  in this tab only, so a reload rejoins the same game.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#083f78">
+<title>Join a live quiz · N5 Computing</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/live.css">
+<style>
+  [hidden] { display:none !important; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .live { min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:safe center; padding:1rem; gap:1rem; text-align:center; }
+  .live > * { width:100%; max-width:34rem; }
+  h1 { font-size:1.7rem; margin:.2rem 0; }
+  .logo { width:4rem; height:4rem; }
+  label.code { display:block; font-weight:700; font-size:1.1rem; margin-bottom:.4rem; }
+  input#code { font:900 2.4rem/1 ui-monospace,"DejaVu Sans Mono",monospace; letter-spacing:.25em; text-align:center; width:100%; max-width:15rem; padding:.4rem; border-radius:var(--radius); border:3px solid var(--edge); background:#fff; color:#1d2733; }
+  .err { background:#fdecea; color:#a3231f; border-radius:.5rem; padding:.5rem .8rem; font-weight:700; }
+  .err:empty { display:none; }
+  .me { display:flex; flex-direction:column; align-items:center; gap:.4rem; }
+  .me .nm { font-size:1.7rem; font-weight:900; }
+  .top { display:flex; justify-content:space-between; align-items:center; gap:.5rem; font-weight:700; position:sticky; top:0; }
+  .top .player { font-size:.95rem; }
+  .tbar { height:.6rem; background:rgba(127,127,127,.35); border-radius:999px; overflow:hidden; }
+  .tbar i { display:block; height:100%; background:var(--accent); transition:width .25s linear; }
+  .qhtml { font-size:1.15rem; text-align:left; }
+  .qhtml pre { white-space:pre-wrap !important; }
+  .tiles { grid-template-columns:minmax(0,1fr); }
+  @media (min-width:700px) { .tiles.two { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+  .tile { font-size:1.15rem; min-height:3.6rem; }
+  input.typed { font:700 1.6rem ui-monospace,monospace; width:100%; padding:.5rem; text-align:center; border-radius:var(--radius); border:3px solid var(--edge); background:#fff; color:#1d2733; }
+  .big { font-size:3.4rem; line-height:1; }
+  .pts { font-size:2.2rem; font-weight:900; }
+  .result.good { border-color:#5ee08a; } .result.bad { border-color:#ff8fa3; }
+  .flame { font-size:1.4rem; font-weight:800; }
+  .answerwas { font-size:1.1rem; margin-top:.5rem; }
+  .podium { display:flex; justify-content:center; align-items:flex-end; gap:.5rem; }
+  .podium div { display:flex; flex-direction:column; align-items:center; font-weight:700; font-size:.85rem; width:30%; }
+  .podium b { display:grid; place-items:center; width:100%; background:var(--accent); color:var(--accent-fg); border-radius:var(--radius) var(--radius) 0 0; font-size:1.6rem; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; }
+  .stats div { font-size:.85rem; } .stats b { display:block; font-size:1.6rem; }
+  .muted2 { opacity:.85; }
+  .wait { font-size:1.2rem; }
+  .dots::after { content:"…"; animation:blink 1.2s steps(3) infinite; }
+  @keyframes blink { 50% { opacity:.2; } }
+</style>
+</head>
+<body data-theme="arcade">
+<main class="live" id="app" aria-live="polite"></main>
+<script src="/assets/teach.js"></script>
+<script src="/assets/live-common.js"></script>
+<script>
+"use strict";
+const { $, esc } = Teach;
+const KEY = "n5t-play";
+let me = JSON.parse(sessionStorage.getItem(KEY) || "null"), es = null, st = null, offset = 0, ticker = null, lastPhase = "", lastQi = -1, picked = new Set(), theme = "";
+const app = $("app");
+
+function setTheme(t) { if (t && t !== theme) { theme = t; Live.background(t); } }
+function joinForm(msg, code) {
+  setTheme("arcade");
+  const c = code || new URLSearchParams(location.search).get("c") || "";
+  app.innerHTML = '<div class="win rise"><div class="title">Join a game</div><img class="logo" src="/assets/logo.svg" alt=""><h1>Join the live quiz</h1>' +
+    '<form id="jf"><label class="code" for="code">Game code</label><input id="code" inputmode="numeric" autocomplete="off" pattern="[0-9 ]*" maxlength="7" value="' + esc(c) + '" required>' +
+    '<div id="namebox" hidden style="margin-top:.8rem"><label class="code" for="real">Your name</label><input id="real" autocomplete="name" maxlength="40" class="typed" style="font-size:1.3rem">' +
+    '<p class="muted2" style="font-size:.85rem;margin:.4rem 0 0">Your teacher asked for this for their results. Only your teacher sees it, in their results: on the board you play with a random name. Nothing is saved after the game. <a href="/privacy/" target="_blank" style="color:inherit">Privacy</a></p></div>' +
+    '<p class="err" id="err" role="alert">' + esc(msg || "") + '</p><button class="lbtn" type="submit" style="width:100%;max-width:15rem;margin-top:.6rem">Join</button></form>' +
+    '<p class="muted2" id="anon" style="font-size:.85rem;margin-top:1rem">You get a random name: you don\'t type yours. Nothing about you is kept after the game. <a href="/privacy/" target="_blank" style="color:inherit">Privacy</a></p></div>';
+  $("jf").onsubmit = async e => {
+    e.preventDefault();
+    const code = $("code").value.replace(/\D/g, ""), err = $("err");
+    err.textContent = "";
+    if ($("namebox").hidden) {                       // first find out whether this game asks for names
+      try { const r = await fetch("/api/games/" + code), j = await r.json(); if (!r.ok) { err.textContent = j.error || "There is no game with that code."; return; }
+        if (j.names) { $("namebox").hidden = false; $("anon").hidden = true; $("real").focus(); return; } }
+      catch (x) { err.textContent = "Can't reach the game. Check your connection."; return; }
+    } else if (!$("real").value.trim()) { err.textContent = "Type your name."; $("real").focus(); return; }
+    join(code, null, $("namebox").hidden ? "" : $("real").value);
+  };
+  if (!c) $("code").focus();
+}
+async function join(code, again, real) {
+  try {
+    const r = await Live.post("/api/games/" + code + "/join", again ? { pid: again.pid, secret: again.secret } : { real: real || "" });
+    me = { ...r, code }; sessionStorage.setItem(KEY, JSON.stringify(me));
+    history.replaceState(null, "", "/play/");
+    connect();
+  } catch (e) { sessionStorage.removeItem(KEY); me = null; joinForm(e.message, code); }
+}
+function connect() {
+  if (es) es.close();
+  es = Live.listen("/api/games/" + me.code + "/play?pid=" + encodeURIComponent(me.pid) + "&secret=" + encodeURIComponent(me.secret),
+    s => { offset = s.now - Date.now(); if (s.phase === "kicked" || s.phase === "closed") return ended(s.phase); st = s; draw(); },
+    () => fetch("/api/games/" + me.code).then(r => { if (r.status === 404) { es.close(); ended("closed"); } }).catch(() => {}));
+}
+function ended(why) {
+  if (es) es.close(); sessionStorage.removeItem(KEY); me = null;
+  app.innerHTML = '<div class="win rise"><div class="title">Game over</div><h1>' + (why === "kicked" ? "You were removed from the game." : "This game has closed.") + '</h1><button class="lbtn" type="button" id="again">Join another game</button></div>';
+  $("again").onclick = () => joinForm();
+}
+const topBar = s => '<div class="top"><span class="player">' + Live.avatar(s.me.avatar, 28) + esc(s.me.name) + '</span><span class="player">' + s.me.score + " pts</span></div>";
+
+function draw() {
+  const s = st, fresh = s.phase !== lastPhase || s.qi !== lastQi;
+  setTheme(s.theme); clearInterval(ticker);
+  if (s.phase === "lobby") {
+    app.innerHTML = '<div class="win me rise"><div class="title">You\'re in!</div>' + Live.avatar(s.me.avatar, 120).replace('class="av"', 'class="av bob"') +
+      '<div class="muted2">You are</div><div class="nm">' + esc(s.me.name) + "</div>" +
+      (s.me.renames > 0 ? '<button type="button" class="lbtn ghost" id="rename">Get a different name (' + s.me.renames + " left)</button>" : "") + "</div>" +
+      '<p class="wait">Look at the board. Waiting for your teacher to start<span class="dots"></span></p><p class="muted2">' + s.players + (s.players === 1 ? " player" : " players") + " in the game</p>";
+    if ($("rename")) $("rename").onclick = async () => { try { await Live.post("/api/games/" + me.code + "/rename", { pid: me.pid, secret: me.secret }); } catch (e) { /* the screen updates anyway */ } };
+  }
+  else if (s.phase === "question") {
+    const q = s.question;
+    if (s.answered) { app.innerHTML = topBar(s) + '<div class="win rise"><div class="title">Locked in</div><div class="big">⏳</div><h1>Answer locked in!</h1>' +
+      (q.discuss && q.round === 1 ? "<p>Think about <strong>why</strong> you chose it: you will have to convince someone.</p>" : "") +
+      '<p class="wait">Waiting for everyone else<span class="dots"></span></p></div>'; }
+    else if (fresh || !app.querySelector("[data-q]")) {
+      picked = new Set();
+      const short = q.opts && q.opts.every(o => o.replace(/<[^>]+>/g, "").length < 30);
+      app.innerHTML = topBar(s) + '<div class="tbar" id="tbar" ' + (q.deadline ? "" : "hidden") + '><i style="width:100%"></i></div>' +
+        (q.discuss && q.round === 2 ? '<div class="win" style="padding:.5rem"><strong>Vote again.</strong> Stay with your answer or change it.</div>' : "") +
+        '<div class="win qhtml" data-q="' + q.qi + '"><div class="title">Question ' + (q.qi + 1) + " of " + q.n + "</div>" + q.html + "</div>" +
+        (q.opts ? (q.type === "multi" ? "<p><b>Select all that apply, then press Send.</b></p>" : "") + '<div class="tiles' + (short ? " two" : "") + '">' +
+          q.opts.map((o, i) => '<button type="button" class="tile t' + i + '" data-i="' + i + '" aria-pressed="false"><span class="shape" aria-hidden="true">' + Live.TILES[i].shape + "<small>" + Live.LETTERS[i] +
+          '</small></span><span class="txt">' + o + "</span></button>").join("") + "</div>" + (q.type === "multi" ? '<button type="button" class="lbtn" id="send" disabled>Send</button>' : "")
+        : '<form id="tf"><label for="typed" class="sr">Your answer</label><input class="typed" id="typed" autocomplete="off" autocapitalize="off" spellcheck="false" ' + (q.type === "num" ? 'inputmode="decimal"' : "") +
+          ' placeholder="' + (q.type === "num" ? "Type a number" : "Type your answer") + '"><button class="lbtn" type="submit" style="margin-top:.6rem;width:100%">Send</button></form>');
+      if (q.round === 2 && s.before !== null && s.before !== undefined) [].concat(s.before).forEach(i => {
+        const b = app.querySelector('.tile[data-i="' + i + '"]');
+        if (b) b.insertAdjacentHTML("beforeend", '<span style="margin-left:auto;font-size:.8rem;opacity:.9">you chose this</span>');
+      });
+      app.querySelectorAll(".tile").forEach(b => b.onclick = () => {
+        const i = Number(b.dataset.i);
+        if (q.type !== "multi") return send(i);
+        picked.has(i) ? picked.delete(i) : picked.add(i); b.setAttribute("aria-pressed", String(picked.has(i))); $("send").disabled = !picked.size;
+      });
+      if ($("send")) $("send").onclick = () => send([...picked]);
+      if ($("tf")) { $("tf").onsubmit = e => { e.preventDefault(); if ($("typed").value.trim()) send($("typed").value.trim()); }; }
+      window.scrollTo(0, 0);
+    }
+    if (q.deadline && $("tbar")) {
+      const bar = $("tbar").firstChild, tick = () => { const left = Math.max(0, q.deadline - 600 - (Date.now() + offset)); bar.style.width = (100 * left / (q.time * 1000)) + "%"; };
+      tick(); ticker = setInterval(tick, 250);
+    }
+  }
+  else if (s.phase === "discuss") {
+    const q = s.question, mine = s.mine === null || s.mine === undefined ? null : [].concat(s.mine);
+    app.innerHTML = topBar(s) + '<div class="win pop"><div class="title">Talk it over</div><div class="big">💬</div><h1>Convince each other</h1>' +
+      (q.opts && mine ? '<p>You chose <strong>' + mine.map(i => Live.LETTERS[i] + ": " + q.opts[i].replace(/<[^>]+>/g, "")).join(", ") + "</strong></p>"
+        : "<p>You have answered.</p>") +
+      '<p>Tell the person next to you <strong>why</strong> you chose it. If you disagree, try to convince each other.</p>' +
+      '<p class="muted2">Nobody is told yet which answer is right. You will all vote again in a moment.</p></div>' +
+      '<p class="wait">Waiting for your teacher<span class="dots"></span></p>';
+  }
+  else if (s.phase === "reveal" || s.phase === "board") {
+    const r = s.result, cls = r.correct ? "good" : "bad";
+    app.innerHTML = topBar(s) + '<div class="win result ' + cls + ' pop"><div class="title">' + (r.correct ? "Correct" : "Not this time") + '</div><div class="big">' + (r.correct ? "✓" : r.answered ? "✗" : "⌛") + "</div>" +
+      "<h1>" + (r.correct ? "Correct!" : r.answered ? "Not this time" : "Out of time") + "</h1>" + (r.correct ? '<div class="pts">+' + r.points + "</div>" : "") +
+      (r.streak >= 2 ? '<div class="flame">🔥 ' + r.streak + " in a row!</div>" : "") +
+      (!r.correct ? '<div class="answerwas">The answer: <b>' + r.answer.join(" and ") + "</b></div>" : "") + "</div>" +
+      '<div class="win"><div class="title">Your place</div><span style="font-size:1.3rem;font-weight:800">You\'re ' + Live.ordinal(s.me.rank) + " of " + s.players + "</span></div>" +
+      '<p class="wait">Look at the board<span class="dots"></span></p>';
+    if (fresh && r.correct && s.phase === "reveal") { Live.confetti(app.querySelector(".result")); if (navigator.vibrate) navigator.vibrate(60); }
+  }
+  else if (s.phase === "end") {
+    const p = s.podium, place = (x, k, h) => x ? "<div>" + Live.avatar(x.avatar, 48) + "<span>" + esc(x.name) + '</span><b style="height:' + h + 'rem">' + k + "</b></div>" : "<div></div>";
+    app.innerHTML = '<div class="win pop"><div class="title">Final results</div><div class="big">' + (s.me.rank <= 3 ? ["🥇", "🥈", "🥉"][s.me.rank - 1] : "🎉") + "</div><h1>You came " + Live.ordinal(s.me.rank) + "!</h1>" +
+      '<div class="stats"><div><b>' + s.me.score + "</b>points</div><div><b>" + s.me.correct + "/" + s.n + "</b>right</div><div><b>" + s.me.best + "</b>best streak</div></div></div>" +
+      '<div class="win"><div class="title">Podium</div><div class="podium">' + place(p[1], 2, 3) + place(p[0], 1, 4.5) + place(p[2], 3, 2) + "</div></div>" +
+      '<button class="lbtn" type="button" id="again">Join another game</button>';
+    $("again").onclick = () => { if (es) es.close(); sessionStorage.removeItem(KEY); me = null; joinForm(); };
+    if (fresh && s.me.rank <= 3) Live.confetti();
+  }
+  lastPhase = s.phase; lastQi = s.qi;
+}
+async function send(answer) {
+  app.querySelectorAll("button").forEach(b => { b.disabled = true; });
+  try { await Live.post("/api/games/" + me.code + "/answer", { pid: me.pid, secret: me.secret, qi: st.question.qi, answer }); }
+  catch (e) { app.querySelectorAll("button").forEach(b => { b.disabled = false; }); }
+}
+if (me) join(me.code, me); else joinForm();
+</script>
+</body>
+</html>

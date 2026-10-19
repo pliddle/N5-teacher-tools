@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: starter questions - N5 Computing Science
+  Spec topic ids: all topics in the question bank (each question carries its own ids, shown on the card).
+  Pick a unit and topics; one exam-style question at a time, big enough for the board, with no timer. The teacher
+  reveals the answer, the reason, and why each wrong option is wrong. Questions come from data/questions.json
+  (tools/build_teacher_data.py). Nothing is sent to a server.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starter questions · N5 Computing teacher tools</title>
+<meta name="description" content="Free N5 Computing Science starter questions for the classroom: exam-style questions by topic, shown large for a projector, with the answer and why each wrong option is wrong.">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/teach.css">
+<style>
+  body.playing { background:linear-gradient(165deg,var(--accent) 0%,var(--accent-dark) 100%); background-attachment:fixed; }
+  /* Setup */
+  .setup { max-width:70rem; margin:0 auto; }
+  .setup h2 { font-size:1.3rem; margin:1rem 0 .5rem; }
+  .units { display:grid; gap:.7rem; grid-template-columns:repeat(auto-fit,minmax(13rem,1fr)); }
+  .unit { text-align:left; flex-direction:column; align-items:flex-start; min-height:6rem; padding:.8rem 1rem; border-radius:.9rem; font-size:1.1rem; border-width:3px; }
+  .unit small { font-weight:400; color:var(--muted); font-size:.85rem; }
+  .unit[aria-pressed="true"] small { color:#dbe8f7; }
+  .topics { display:grid; gap:.2rem .8rem; grid-template-columns:repeat(auto-fill,minmax(17rem,1fr)); background:#fff; border:1px solid var(--line); border-radius:.8rem; padding:.6rem 1rem; }
+  .topics label { display:flex; gap:.5rem; align-items:center; min-height:2.4rem; }
+  .topics input, .filters input { width:1.2rem; height:1.2rem; }
+  .filters { display:flex; flex-wrap:wrap; gap:.4rem 1.6rem; margin:.6rem 0; }
+  .filters fieldset { border:0; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:.2rem .9rem; align-items:center; }
+  .filters legend { font-weight:700; float:left; margin-right:.6rem; }
+  .filters label { display:inline-flex; align-items:center; gap:.35rem; min-height:2.3rem; }
+  .go { display:flex; gap:.8rem; align-items:center; flex-wrap:wrap; margin:1rem 0 2rem; }
+  .go .big { font-size:1.25rem; padding:.6rem 1.6rem; }
+  /* Question */
+  body.playing { padding-bottom:5rem; }
+  .stage { max-width:84rem; margin:0 auto; padding:.6rem 1rem; color:#fff; }
+  .stage.side .qgrid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:1rem; align-items:start; }
+  .stage.side .opts, .stage.side .pairs, .stage.side .answer { margin-top:0; }
+  .stage.side .opts.two { grid-template-columns:minmax(0,1fr); }
+  .top { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:.6rem; }
+  .chip { background:var(--amber); color:var(--ink); font-weight:700; padding:.25rem .8rem; border-radius:999px; }
+  .chip.soft { background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.5); font-weight:400; }
+  .card { background:#fff; color:var(--ink); border-radius:1rem; padding:1rem 1.3rem; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .card.q { font-size:var(--qsize, 1.6rem); line-height:1.3; }
+  .card.q p { margin:.2em 0 .5em; }
+  .card.q pre { font-size:.85em !important; line-height:1.45 !important; }
+  .card.q img { max-width:100%; max-height:52vh; height:auto; display:block; margin:.4em auto; }
+  .card.q table { border-collapse:collapse; font-size:.8em; }
+  .card.q td, .card.q th { border:1px solid var(--line); padding:.1em .4em; }
+  .opts { list-style:none; padding:0; margin:.8rem 0 0; display:grid; gap:.55rem; font-size:var(--qsize, 1.6rem); }
+  .opts.two { grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr)); }
+  .opts li { display:flex; gap:.7rem; align-items:flex-start; background:rgba(255,255,255,.13); border:2px solid rgba(255,255,255,.55);
+             border-radius:.9rem; padding:.5rem .8rem; font-weight:700; transition:transform .35s, background-color .35s, opacity .35s; }
+  .opts li > b { flex:none; width:1.7em; height:1.7em; border-radius:50%; background:#fff; color:var(--accent); display:grid; place-items:center; font-size:.85em; }
+  .opts li .t { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .opts li .fb { display:block; font-weight:400; font-size:.62em; margin-top:.25em; }
+  .opts li.right { background:#12813f; border-color:#fff; transform:scale(1.02); }
+  .opts li.right > b { color:#12813f; }
+  .opts li.right::after { content:"✓"; margin-left:auto; font-size:1.2em; }
+  .opts li.dim { opacity:.55; }
+  .pairs { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.6rem 1rem; margin-top:.8rem; font-size:calc(var(--qsize, 1.6rem) * .85); }
+  .pairs ol { list-style:none; padding:0; margin:0; display:grid; gap:.45rem; }
+  .pairs li { background:rgba(255,255,255,.13); border:2px solid rgba(255,255,255,.55); border-radius:.7rem; padding:.35rem .7rem; font-weight:700; display:flex; gap:.6rem; }
+  .pairs li b { flex:none; color:var(--amber); }
+  .pairs li.right { background:#12813f; border-color:#fff; }
+  .answer { margin-top:.8rem; font-size:calc(var(--qsize, 1.6rem) * 1.1); font-weight:700; display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+  .answer .box { background:#fff; color:var(--ink); border-radius:.7rem; padding:.3rem 1.2rem; min-width:5em; text-align:center; font-family:var(--mono); }
+  .answer .box.right { background:#12813f; color:#fff; }
+  .gapopts { margin-top:.6rem; font-size:calc(var(--qsize, 1.6rem) * .8); }
+  .gapopts span { display:inline-block; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.6); border-radius:.4rem; padding:.05rem .5rem; margin:.15rem; font-family:var(--mono); }
+  .gap { display:inline-block; min-width:3.2em; border-bottom:3px solid var(--accent); text-align:center; font-weight:700; color:var(--accent); }
+  .gap.filled { background:#c9f0d6; color:#0c5a2e; border-color:#12813f; border-radius:.3rem .3rem 0 0; padding:0 .3em; }
+  .why { margin-top:.9rem; border-left:.6rem solid var(--amber); font-size:calc(var(--qsize, 1.6rem) * .78); animation:up .4s ease-out; }
+  .why h3 { color:#8a5a00; font-size:.8em; text-transform:uppercase; letter-spacing:.05em; margin:0 0 .3em; }
+  .why .exam-report { border-top:1px solid var(--line); margin-top:.6em; padding-top:.4em; font-size:.85em; }
+  .why .exam-report ul { margin:.2em 0; }
+  @keyframes up { from { transform:translateY(20px); opacity:0; } to { transform:none; opacity:1; } }
+  .dock { position:fixed; left:0; right:0; bottom:0; display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem; padding:.6rem; background:rgba(8,40,80,.92); }
+  .dock button { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.6); color:#fff; }
+  .dock button.amber { background:var(--amber); color:var(--ink); border-color:var(--amber); font-size:1.15rem; padding:.4rem 1.4rem; }
+  .dock label { color:#fff; display:inline-flex; align-items:center; gap:.35rem; font-size:.9rem; }
+  #confetti { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:5; }
+  #confetti i { position:absolute; width:.55rem; height:.85rem; border-radius:2px; }
+  .spec { font-size:.75rem; opacity:.8; }
+</style>
+</head>
+<body>
+<header class="bar" id="bar"></header>
+
+<main class="tool setup" id="setup">
+  <h2>1. Choose a unit</h2>
+  <div class="units" id="units"></div>
+  <div id="topicbox" hidden>
+    <h2>2. Choose the topics <button type="button" id="alltopics" style="font-size:.8rem;min-height:2rem;margin-left:.6rem">Tick all</button> <button type="button" id="notopics" style="font-size:.8rem;min-height:2rem">Untick all</button></h2>
+    <div class="topics" id="topics"></div>
+    <div class="filters">
+      <fieldset><legend>Questions</legend>
+        <label><input type="checkbox" id="set1" checked> Set 1</label><label><input type="checkbox" id="set2" checked> Set 2</label></fieldset>
+      <fieldset><legend>Level</legend>
+        <label><input type="checkbox" id="lvC" checked> C (core)</label><label><input type="checkbox" id="lvA" checked> A (harder)</label></fieldset>
+      <fieldset><legend>Kinds</legend>
+        <label><input type="checkbox" id="kChoice" checked> Multiple choice and true/false</label>
+        <label><input type="checkbox" id="kAnswer" checked> Number or word answers</label>
+        <label><input type="checkbox" id="kOther" checked> Matching, ordering, fill the gaps</label></fieldset>
+    </div>
+    <div class="go"><button type="button" class="primary big" id="start">Start</button><span id="count" class="muted" role="status" aria-live="polite"></span></div>
+  </div>
+</main>
+
+<main class="stage" id="stage" hidden>
+  <div class="top"><span class="chip" id="qchip"></span><span class="chip soft" id="qnum"></span><span class="chip soft" id="qlevel"></span><span class="spec" id="qspec"></span></div>
+  <div class="qgrid"><div class="card q" id="qcard"></div>
+  <div id="qbody"></div></div>
+  <div class="card why" id="why" hidden><h3>Why</h3><div id="whytext"></div></div>
+</main>
+<div class="dock" id="dock" hidden>
+  <button type="button" id="prev" title="Previous question (←)">◀ Back</button>
+  <button type="button" class="amber" id="reveal" title="Show the answer (Space)">Show the answer</button>
+  <button type="button" id="next" title="Next question (→)">Next ▶</button>
+  <label><input type="checkbox" id="showfb" checked> Say why each wrong option is wrong</label>
+  <button type="button" id="change">Change topics</button>
+</div>
+<div id="confetti" aria-hidden="true"></div>
+
+<script src="/assets/teach.js"></script>
+<script>
+"use strict";
+const { $, esc, shuffle } = Teach;
+Teach.bar("Starter questions");
+let DATA, unit = null, deck = [], at = -1, shown = false, view = null;
+const KINDS = { kChoice: ["mc", "multi", "tf"], kAnswer: ["num", "short"], kOther: ["match", "order", "gaps"] };
+const SAVE = "n5t-starter";
+
+fetch("/data/questions.json").then(r => r.json()).then(d => {
+  DATA = d;
+  $("units").innerHTML = d.units.map((u, i) => '<button type="button" class="unit" data-u="' + i + '" aria-pressed="false">' + esc(u.title) +
+    "<small>" + u.topics.length + " topics, " + u.topics.reduce((a, t) => a + t.questions.length, 0) + " questions</small></button>").join("");
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem(SAVE) || "{}"); } catch (e) { /* none */ }
+  for (const id of ["set1", "set2", "lvC", "lvA", "kChoice", "kAnswer", "kOther"]) if (id in saved) $(id).checked = saved[id];
+  if (saved.unit !== undefined && d.units[saved.unit]) pickUnit(saved.unit, saved.topics);
+}).catch(() => { $("units").textContent = "The questions did not load. Try reloading the page."; });
+
+function pickUnit(i, topics) {
+  unit = DATA.units[i];
+  document.querySelectorAll(".unit").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.u === String(i))));
+  $("topicbox").hidden = false;
+  $("topics").innerHTML = unit.topics.map((t, k) => '<label><input type="checkbox" data-t="' + k + '"' + (!topics || topics.includes(k) ? " checked" : "") + "> " + esc(t.title) +
+    ' <span class="muted">(' + t.questions.length + ")</span></label>").join("");
+  count();
+}
+function pool() {
+  if (!unit) return [];
+  const kinds = Object.keys(KINDS).filter(k => $(k).checked).flatMap(k => KINDS[k]);
+  const sets = [1, 2].filter(n => $("set" + n).checked), levels = ["C", "A"].filter(l => $("lv" + l).checked);
+  return [...document.querySelectorAll("[data-t]")].filter(x => x.checked).flatMap(x => unit.topics[x.dataset.t].questions.map(q => ({ ...q, topic: unit.topics[x.dataset.t].title })))
+    .filter(q => kinds.includes(q.type) && sets.includes(q.set) && levels.includes(q.level));
+}
+function count() {
+  const n = pool().length;
+  $("count").textContent = n ? n + " questions to choose from, in a random order." : "No questions match. Tick more topics or options.";
+  $("start").disabled = !n;
+}
+$("units").addEventListener("click", e => { const b = e.target.closest(".unit"); if (b) pickUnit(Number(b.dataset.u)); });
+$("topicbox").addEventListener("change", count);
+$("alltopics").onclick = () => { document.querySelectorAll("[data-t]").forEach(x => { x.checked = true; }); count(); };
+$("notopics").onclick = () => { document.querySelectorAll("[data-t]").forEach(x => { x.checked = false; }); count(); };
+$("start").onclick = () => {
+  const s = { unit: DATA.units.indexOf(unit), topics: [...document.querySelectorAll("[data-t]")].filter(x => x.checked).map(x => Number(x.dataset.t)) };
+  for (const id of ["set1", "set2", "lvC", "lvA", "kChoice", "kAnswer", "kOther"]) s[id] = $(id).checked;
+  localStorage.setItem(SAVE, JSON.stringify(s));
+  deck = shuffle(pool()); at = -1;
+  $("setup").hidden = true; $("stage").hidden = $("dock").hidden = false; document.body.classList.add("playing");
+  go(1);
+};
+$("change").onclick = () => { $("setup").hidden = false; $("stage").hidden = $("dock").hidden = true; document.body.classList.remove("playing"); };
+
+/* ---------- One question ---------- */
+function go(d) {
+  if (at + d < 0) return;
+  if (at + d >= deck.length) { deck = deck.concat(shuffle(pool())); }      // run out: a fresh shuffle
+  at += d; shown = false; draw(deck[at]); $("reveal").focus();
+}
+const LETTERS = "ABCDEFGHIJ";
+function draw(q) {
+  $("qchip").textContent = q.topic; $("qnum").textContent = "Question " + (at + 1);
+  $("qlevel").textContent = q.level === "A" ? "A: harder" : "C: core";
+  $("qspec").textContent = q.id + " · " + q.spec.join(", ");
+  $("why").hidden = true; $("whytext").innerHTML = q.fb || "<p>No further explanation.</p>";
+  $("reveal").disabled = false; $("reveal").textContent = "Show the answer";
+  let qhtml = q.q, body = "";
+  view = { q };
+  if (q.type === "mc" || q.type === "multi" || q.type === "tf") {
+    view.opts = q.type === "tf" ? q.opts : shuffle(q.opts);
+    const long = view.opts.some(o => o.h.replace(/<[^>]+>/g, "").length > 38);
+    body = (q.type === "multi" ? '<p class="chip" style="display:inline-block;margin-top:.8rem">Select all that apply</p>' : "") +
+      '<ol class="opts' + (long ? "" : " two") + '">' + view.opts.map((o, i) => "<li><b>" + LETTERS[i] + '</b><span class="t">' + o.h + '<span class="fb" hidden>' + (o.fb ? o.fb.replace(/<\/?p>/g, " ") : "") + "</span></span></li>").join("") + "</ol>";
+  } else if (q.type === "num" || q.type === "short") {
+    body = '<div class="answer">Answer: <span class="box" id="ans">?</span></div>';
+  } else if (q.type === "match") {
+    view.right = shuffle(q.pairs.map(p => p[1]));
+    body = '<div class="pairs"><ol>' + q.pairs.map((p, i) => "<li><b>" + (i + 1) + "</b><span>" + p[0] + "</span></li>").join("") + '</ol><ol id="rights">' +
+      view.right.map((r, i) => "<li><b>" + LETTERS[i] + "</b><span>" + esc(r) + "</span></li>").join("") + "</ol></div>";
+  } else if (q.type === "order") {
+    view.items = shuffle(q.order);
+    if (view.items.join() === q.order.join() && q.order.length > 1) view.items.push(view.items.shift());
+    body = '<div class="pairs" style="grid-template-columns:minmax(0,1fr)"><ol id="orderlist">' + view.items.map((t, i) => "<li><b>" + LETTERS[i] + "</b><span>" + t + "</span></li>").join("") + "</ol></div>";
+  } else if (q.type === "gaps") {
+    qhtml = qhtml.replace(/\[\[(\d+)\]\]/g, (m, n) => '<span class="gap" data-gap="' + n + '">(' + n + ")</span>");
+    const groups = [...new Set(q.choices.map(c => c.g))];
+    const gapsIn = g => [...q.q.matchAll(/\[\[(\d+)\]\]/g)].map(m => Number(m[1])).filter(n => q.choices[n - 1].g === g);
+    body = '<div class="gapopts">' + groups.map(g => "<div>" + (groups.length > 1 ? "Gap" + (gapsIn(g).length > 1 ? "s " : " ") + gapsIn(g).join(", ") + ": " : "Options: ") +
+      shuffle(q.choices.filter(c => c.g === g)).map(c => "<span>" + esc(c.t) + "</span>").join("") + "</div>").join("") + "</div>";
+  }
+  $("qcard").innerHTML = qhtml; $("qbody").innerHTML = body;
+  fit();
+}
+function reveal() {
+  if (shown) return go(1);
+  shown = true; const q = view.q;
+  if (view.opts) {
+    const lis = [...document.querySelectorAll(".opts li")];
+    view.opts.forEach((o, i) => { lis[i].classList.add(o.ok ? "right" : "dim"); if ($("showfb").checked && !o.ok && o.fb) lis[i].querySelector(".fb").hidden = false; });
+    confetti(lis.find(l => l.classList.contains("right")));
+  } else if (q.type === "num") {
+    $("ans").textContent = show(q.num.v) + (q.num.tol ? " (± " + show(q.num.tol) + ")" : ""); $("ans").classList.add("right"); confetti($("ans"));
+  } else if (q.type === "short") {
+    $("ans").textContent = q.short.join("  or  "); $("ans").classList.add("right"); confetti($("ans"));
+  } else if (q.type === "match") {
+    $("rights").innerHTML = q.pairs.map((p, i) => '<li class="right"><b>' + LETTERS[view.right.indexOf(p[1])] + "</b><span>" + esc(p[1]) + "</span></li>").join("");
+  } else if (q.type === "order") {
+    $("orderlist").innerHTML = q.order.map(t => '<li class="right"><b>' + LETTERS[view.items.indexOf(t)] + "</b><span>" + t + "</span></li>").join("");
+  } else if (q.type === "gaps") {
+    document.querySelectorAll(".gap").forEach(s => { s.textContent = q.choices[Number(s.dataset.gap) - 1].t; s.classList.add("filled"); });
+  }
+  $("why").hidden = false; $("reveal").textContent = "Next question";
+  fit();
+}
+const show = n => String(Math.round(n * 1e6) / 1e6);
+// Shrink the question text until the question and its answers fit on the screen.
+// On a wide screen, a tall question (usually code) goes beside its answers instead.
+function fit() {
+  const stage = $("stage"), room = () => window.innerHeight - $("dock").offsetHeight - $("bar").offsetHeight;
+  const tryFit = min => { let s = 1.7; stage.style.setProperty("--qsize", s + "rem");
+    while (stage.scrollHeight > room() && s > min) { s -= 0.05; stage.style.setProperty("--qsize", s + "rem"); }
+    return stage.scrollHeight <= room(); };
+  stage.classList.remove("side");
+  if (tryFit(1.15)) return;
+  if (window.innerWidth >= 1000) { stage.classList.add("side"); tryFit(0.95); }    // if even this is too tall, the page scrolls
+  else tryFit(0.95);
+}
+window.addEventListener("resize", () => { if (!$("stage").hidden) fit(); });
+function confetti(from) {
+  if (!from || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const box = from.getBoundingClientRect(), cx = box.left + box.width / 2, cy = box.top + box.height / 2, cols = ["#ffb300", "#ffffff", "#7fd1ff", "#5ee08a", "#ff8fb1"];
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement("i"); p.style.background = cols[i % cols.length]; p.style.left = cx + "px"; p.style.top = cy + "px"; $("confetti").appendChild(p);
+    const a = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 240, dx = Math.cos(a) * sp, dy = Math.sin(a) * sp - 160;
+    p.animate([{ transform: "translate(0,0)", opacity: 1 }, { transform: `translate(${dx}px,${dy}px) rotate(${Math.random() * 720}deg)`, opacity: 1, offset: .55 },
+      { transform: `translate(${dx * 1.2}px,${dy + 420}px) rotate(${Math.random() * 1080}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 500, easing: "cubic-bezier(.2,.7,.4,1)", fill: "forwards" })
+      .onfinish = () => p.remove();
+  }
+}
+$("reveal").onclick = reveal;
+$("next").onclick = () => go(1);
+$("prev").onclick = () => go(-1);
+$("showfb").onchange = () => { if (shown && view.opts) view.opts.forEach((o, i) => { const f = document.querySelectorAll(".opts li .fb")[i]; if (!o.ok && o.fb) f.hidden = !$("showfb").checked; }); fit(); };
+document.addEventListener("keydown", e => {
+  if ($("stage").hidden || e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === " " || e.key === "Enter") { if (e.target.closest("button") && e.target !== $("reveal")) return; e.preventDefault(); reveal(); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+});
+</script>
+</body>
+</html>

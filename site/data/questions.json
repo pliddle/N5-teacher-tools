@@ -1,0 +1,510 @@
+{
+ "units": [
+  {
+   "code": "SDD",
+   "title": "Software design and development",
+   "topics": [
+    {
+     "title": "Programming constructs",
+     "questions": [
+      {
+       "id": "OPEN-SDD-01",
+       "title": "Running total order",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "SDD.IMPL.standard_algorithms"
+       ],
+       "q": "<p>These lines add up five marks typed in at the keyboard and display the total. Put them in the correct order.</p>",
+       "fb": "<p>The total must be set to 0 before the loop, so each mark can be added to it inside the loop. The total is displayed after the loop has finished.</p>",
+       "type": "order",
+       "order": [
+        "SET total TO 0",
+        "FOR counter FROM 1 TO 5 DO",
+        "RECEIVE mark FROM KEYBOARD",
+        "SET total TO total + mark",
+        "END FOR",
+        "SEND total TO DISPLAY"
+       ]
+      },
+      {
+       "id": "OPEN-SDD-02",
+       "title": "Doubling loop",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "SDD.IMPL.iteration",
+        "SDD.IMPL.assign_arith"
+       ],
+       "q": "<p>What does this program display?</p><pre style=\"font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.95em;background:#f4f5f7;border:1px solid #d0d4da;border-radius:6px;padding:0.75em 1em;overflow-x:auto;line-height:1.6;white-space:pre-wrap;word-break:normal\">SET x TO 3\nFOR counter FROM 1 TO 4 DO\n   SET x TO x * 2\nEND FOR\nSEND x TO DISPLAY</pre>",
+       "fb": "<p>x starts at 3 and is doubled four times: 6, 12, 24, 48.</p>",
+       "type": "num",
+       "num": {
+        "v": 48.0,
+        "tol": 0.0
+       }
+      },
+      {
+       "id": "OPEN-SDD-03",
+       "title": "Joining strings",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "SDD.IMPL.concatenation"
+       ],
+       "q": "<p>What does this program display?</p><pre style=\"font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.95em;background:#f4f5f7;border:1px solid #d0d4da;border-radius:6px;padding:0.75em 1em;overflow-x:auto;line-height:1.6;white-space:pre-wrap;word-break:normal\">SET town TO \"Fort\"\nSET place TO \"William\"\nSEND town &amp; \" \" &amp; place TO DISPLAY</pre>",
+       "fb": "<p>The &amp; operator joins strings together (concatenation). The string in the middle is a single space.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "Fort William",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "FortWilliam",
+         "ok": false,
+         "fb": "<p>There is a space between the two names: the middle string is a space.</p>"
+        },
+        {
+         "h": "Fort &amp; William",
+         "ok": false,
+         "fb": "<p>&amp; is the joining operator. It is not displayed.</p>"
+        },
+        {
+         "h": "Fort + William",
+         "ok": false,
+         "fb": "<p>Nothing is added up: the strings are joined and the operator is not displayed.</p>"
+        }
+       ]
+      },
+      {
+       "id": "OPEN-SDD-04",
+       "title": "Postcode type",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "SDD.IMPL.data_types",
+        "SDD.DESIGN.data_types"
+       ],
+       "q": "<p>A program stores a postcode such as PH33 6AB. What data type should be used? Type one word.</p>",
+       "fb": "<p>A postcode mixes letters, digits and a space, and nobody does arithmetic with it, so it is a string.</p>",
+       "type": "short",
+       "short": [
+        "string"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Testing",
+     "questions": [
+      {
+       "id": "OPEN-SDD-05",
+       "title": "Extreme test data",
+       "set": 1,
+       "level": "A",
+       "spec": [
+        "SDD.TEST.test_data"
+       ],
+       "q": "<p>A program accepts a pupil's age from 12 to 18 inclusive. Select ALL the <strong>extreme</strong> test data values.</p>",
+       "fb": "<p>Extreme data is at the very edge of what is allowed: the lowest and highest valid values. 15 is normal data. 11 and 19 are outside the range, so they are exceptional.</p>",
+       "type": "multi",
+       "opts": [
+        {
+         "h": "12",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "18",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "15",
+         "ok": false,
+         "fb": "<p>15 is in the middle of the range: it is normal data.</p>"
+        },
+        {
+         "h": "11",
+         "ok": false,
+         "fb": "<p>11 is just outside the range. That is exceptional data, not extreme data.</p>"
+        },
+        {
+         "h": "19",
+         "ok": false,
+         "fb": "<p>19 is just outside the range. That is exceptional data, not extreme data.</p>"
+        }
+       ]
+      },
+      {
+       "id": "OPEN-SDD-06",
+       "title": "Syntax errors",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "SDD.TEST.errors"
+       ],
+       "q": "<p>A syntax error is found while the program is running, because the program does the wrong thing.</p>",
+       "fb": "<p>A syntax error breaks the rules of the language, so it is found as the code is translated. A program that runs but gives the wrong result has a logic error.</p>",
+       "type": "tf",
+       "opts": [
+        {
+         "h": "True",
+         "ok": false,
+         "fb": "<p>A syntax error is a mistake in the rules of the language, found when the code is translated. Wrong results from a program that runs are a logic error.</p>"
+        },
+        {
+         "h": "False",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "CS",
+   "title": "Computer systems",
+   "topics": [
+    {
+     "title": "Data representation",
+     "questions": [
+      {
+       "id": "OPEN-CS-01",
+       "title": "Binary to denary",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "CS.DATA.binary_integers"
+       ],
+       "q": "<p>Convert the binary number 10110 to denary.</p>",
+       "fb": "<p>10110 = 16 + 4 + 2 = 22.</p>",
+       "type": "num",
+       "num": {
+        "v": 22.0,
+        "tol": 0.0
+       }
+      },
+      {
+       "id": "OPEN-CS-02",
+       "title": "Denary to binary",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "CS.DATA.binary_integers"
+       ],
+       "q": "<p>Convert the denary number 37 to binary. Type the digits only.</p>",
+       "fb": "<p>37 = 32 + 4 + 1, which is 100101 in binary.</p>",
+       "type": "short",
+       "short": [
+        "100101",
+        "00100101"
+       ]
+      },
+      {
+       "id": "OPEN-CS-03",
+       "title": "Vector or bitmap",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "CS.DATA.graphics"
+       ],
+       "q": "<p>A club wants a logo that can be enlarged for a banner without losing quality. Which type of graphic should it use?</p>",
+       "fb": "<p>A vector graphic is stored as objects with attributes, so the computer redraws it at any size. A bit-mapped graphic is a grid of pixels and loses quality when enlarged.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "Vector",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "Bit-mapped",
+         "ok": false,
+         "fb": "<p>Enlarging a bit-mapped graphic stretches its pixels, so it looks blocky.</p>"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Computer structure and security",
+     "questions": [
+      {
+       "id": "OPEN-CS-04",
+       "title": "Inside the processor",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "CS.STRUCT.architecture"
+       ],
+       "q": "<p>Match each part of the computer to its job.</p>",
+       "fb": "<p>The control unit organises the fetch-execute cycle, and the ALU does the arithmetic and logic. The address bus carries the memory location, and the data bus carries the contents.</p>",
+       "type": "match",
+       "pairs": [
+        [
+         "ALU",
+         "carries out calculations and comparisons"
+        ],
+        [
+         "Control unit",
+         "controls the transfer of instructions and data"
+        ],
+        [
+         "Address bus",
+         "carries the location of the memory being used"
+        ],
+        [
+         "Data bus",
+         "carries the contents of a memory location"
+        ]
+       ]
+      },
+      {
+       "id": "OPEN-CS-05",
+       "title": "Compiler clues",
+       "set": 1,
+       "level": "A",
+       "spec": [
+        "CS.STRUCT.translators"
+       ],
+       "q": "<p>A company sells a finished game. The player's computer must run it without needing the programmer's source code. Which translator was used?</p>",
+       "fb": "<p>A compiler translates the whole program to machine code in advance, so only the translated program needs to be supplied. An interpreter translates and runs one line at a time and needs the source code each time it runs.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "A compiler",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "An interpreter",
+         "ok": false,
+         "fb": "<p>An interpreter translates the source code each time it runs, so the source would have to be supplied.</p>"
+        }
+       ]
+      },
+      {
+       "id": "OPEN-CS-06",
+       "title": "Firewall",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "CS.SEC.precautions"
+       ],
+       "q": "<p>What is the main job of a firewall?</p>",
+       "fb": "<p>A firewall checks the data entering and leaving a network and blocks what is not allowed. Encryption, not a firewall, scrambles data so it cannot be read if it is intercepted.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "To block unauthorised connections to and from a network",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "To scramble data so it cannot be read if intercepted",
+         "ok": false,
+         "fb": "<p>That describes encryption.</p>"
+        },
+        {
+         "h": "To make the computer run faster",
+         "ok": false,
+         "fb": "<p>A firewall is a security measure, not a speed-up.</p>"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "DDD",
+   "title": "Database design and development",
+   "topics": [
+    {
+     "title": "Keys and design",
+     "questions": [
+      {
+       "id": "OPEN-DDD-02",
+       "title": "Primary key",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "DDD.DESIGN.data_dictionary"
+       ],
+       "q": "<p>What is the job of a primary key in a table?</p>",
+       "fb": "<p>A primary key is a field whose value is different for every record, so each record can be found exactly.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "It identifies each record uniquely",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "It links to a field in another table",
+         "ok": false,
+         "fb": "<p>That describes a foreign key.</p>"
+        },
+        {
+         "h": "It is the first field in the table",
+         "ok": false,
+         "fb": "<p>Its position does not matter: it is the uniqueness that makes it a key.</p>"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "SQL",
+     "questions": [
+      {
+       "id": "OPEN-DDD-01",
+       "title": "Count the records",
+       "set": 1,
+       "level": "A",
+       "spec": [
+        "DDD.IMPL.sql",
+        "DDD.TEST.sql"
+       ],
+       "q": "<p>This table is called ferry.</p><table><tr><th>route</th><th>passengers</th></tr><tr><td>Oban</td><td>120</td></tr><tr><td>Mull</td><td>45</td></tr><tr><td>Skye</td><td>80</td></tr><tr><td>Islay</td><td>30</td></tr><tr><td>Arran</td><td>95</td></tr><tr><td>Barra</td><td>60</td></tr></table><p>How many records does this statement return?</p><pre style=\"font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.95em;background:#f4f5f7;border:1px solid #d0d4da;border-radius:6px;padding:0.75em 1em;overflow-x:auto;line-height:1.6;white-space:pre-wrap;word-break:normal\">SELECT route\nFROM ferry\nWHERE passengers &gt; 50\nAND passengers &lt; 100</pre>",
+       "fb": "<p>The passengers must be above 50 and below 100: that is Skye (80), Arran (95) and Barra (60), so 3 records. Oban (120) is too high, and Mull (45) and Islay (30) are too low.</p>",
+       "type": "num",
+       "num": {
+        "v": 3.0,
+        "tol": 0.0
+       }
+      },
+      {
+       "id": "OPEN-DDD-03",
+       "title": "Complete the update",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "DDD.IMPL.sql"
+       ],
+       "q": "<p>A pupil moves house. Choose the missing word to change only the record where pupilID is 7.</p><pre style=\"font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.95em;background:#f4f5f7;border:1px solid #d0d4da;border-radius:6px;padding:0.75em 1em;overflow-x:auto;line-height:1.6;white-space:pre-wrap;word-break:normal\">UPDATE pupil\nSET town = \"Perth\"\n[[1]] pupilID = 7</pre>",
+       "fb": "<p>WHERE picks which records change. Without it, every record in the table would be updated.</p>",
+       "type": "gaps",
+       "choices": [
+        {
+         "t": "WHERE",
+         "g": 1
+        },
+        {
+         "t": "FROM",
+         "g": 1
+        },
+        {
+         "t": "ORDER BY",
+         "g": 1
+        },
+        {
+         "t": "AND",
+         "g": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "WDD",
+   "title": "Web design and development",
+   "topics": [
+    {
+     "title": "HTML and JavaScript",
+     "questions": [
+      {
+       "id": "OPEN-WDD-01",
+       "title": "Relative address",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "WDD.IMPL.html"
+       ],
+       "q": "<p>A page in the folder <code>site</code> shows a picture stored in <code>site/images</code>. Which address is a <strong>relative</strong> address?</p>",
+       "fb": "<p>A relative address gives the path from the current page. An absolute address gives the full web address, starting with https://.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "images/ben.png",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "https://www.example.com/site/images/ben.png",
+         "ok": false,
+         "fb": "<p>This is a full web address, so it is absolute.</p>"
+        }
+       ]
+      },
+      {
+       "id": "OPEN-WDD-02",
+       "title": "Mouse events",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "WDD.IMPL.javascript"
+       ],
+       "q": "<p>The JavaScript event <code>onmouseover</code> runs when the mouse pointer moves onto an element.</p>",
+       "fb": "<p>onmouseover runs when the pointer moves onto an element, and onmouseout when it moves off.</p>",
+       "type": "tf",
+       "opts": [
+        {
+         "h": "True",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "False",
+         "ok": false,
+         "fb": "<p>onmouseover is the event for the pointer moving onto an element.</p>"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "File formats",
+     "questions": [
+      {
+       "id": "OPEN-WDD-03",
+       "title": "Transparent image",
+       "set": 1,
+       "level": "C",
+       "spec": [
+        "WDD.DESIGN.file_formats"
+       ],
+       "q": "<p>A web page needs a logo with a transparent background that does not lose quality when compressed. Which format is best?</p>",
+       "fb": "<p>PNG supports transparency and its compression keeps all the detail. JPEG does not support transparency. GIF does, but only has 256 colours.</p>",
+       "type": "mc",
+       "opts": [
+        {
+         "h": "PNG",
+         "ok": true,
+         "fb": "<p>Correct.</p>"
+        },
+        {
+         "h": "JPEG",
+         "ok": false,
+         "fb": "<p>JPEG does not support transparency.</p>"
+        },
+        {
+         "h": "GIF",
+         "ok": false,
+         "fb": "<p>GIF supports transparency, but only 256 colours, so a detailed logo would lose quality.</p>"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

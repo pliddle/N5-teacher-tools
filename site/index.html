@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: the front page of teachers.DOMAIN - N5 Computing Science
+  Free tools for National 5 Computing Science teachers, built on the course's question bank and simulations.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free teacher tools · N5 Computing Science</title>
+<meta name="description" content="Free classroom tools for National 5 Computing Science: starter questions, a code stepper, an SQL query builder and a live quiz game.">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/teach.css">
+<style>
+  .hero { background:linear-gradient(120deg,var(--accent),var(--accent-dark)); color:#fff; padding:2.2rem 1rem 3rem; text-align:center; }
+  .hero img { width:4.5rem; height:4.5rem; }
+  .hero h1 { font-size:2.1rem; margin:.4rem 0; }
+  .hero p { font-size:1.15rem; max-width:44rem; margin:.4rem auto; opacity:.95; }
+  .cards { max-width:72rem; margin:-1.8rem auto 0; padding:0 1rem; display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(16rem,1fr)); }
+  .card { display:flex; flex-direction:column; background:#fff; border-radius:1rem; box-shadow:0 6px 20px rgba(8,40,80,.15); overflow:hidden; color:var(--ink); text-decoration:none; transition:transform .15s; }
+  .card:hover, .card:focus-visible { transform:translateY(-3px); }
+  .card .pic { height:7.5rem; display:grid; place-items:center; font:700 1.6rem var(--mono); color:#fff; }
+  .card .body { padding:.8rem 1rem 1rem; flex:1; display:flex; flex-direction:column; gap:.3rem; }
+  .card h2 { font-size:1.25rem; margin:0; color:var(--accent); }
+  .card p { margin:0; color:var(--muted); }
+  .card .go { margin-top:auto; padding-top:.5rem; font-weight:700; color:var(--accent); }
+  .about { max-width:52rem; margin:2rem auto; padding:0 1rem; }
+  .about h2 { font-size:1.2rem; }
+  .about li { margin:.3rem 0; }
+</style>
+</head>
+<body>
+<section class="hero">
+  <img src="/assets/logo.svg" alt="">
+  <h1>Free teacher tools</h1>
+  <p>For National 5 Computing Science classrooms. Built on the same exam-style questions and simulations as <a href="https://national5computing.co.uk/?from=gh-tools" style="color:var(--amber)">national5computing.co.uk</a>. No sign-up needed.</p>
+</section>
+<div class="cards">
+  <a class="card" href="/starter/"><div class="pic" style="background:linear-gradient(135deg,#0b5cad,#2ec4b6)">A · B · C · D</div>
+    <div class="body"><h2>Starter questions</h2><p>Pick a unit and topics. One exam-style question at a time, big on the board, no timer. You reveal the answer and why each wrong option is wrong.</p><span class="go">Open →</span></div></a>
+  <a class="card" href="/stepper/"><div class="pic" style="background:#10202f;color:#ffd479">SET x TO 5 ▶</div>
+    <div class="body"><h2>Code stepper</h2><p>Step through reference-language programs line by line: the working, the variables, arrays, what is typed and displayed, a trace table, and Python alongside.</p><span class="go">Open →</span></div></a>
+  <a class="card" href="/sql/"><div class="pic" style="background:linear-gradient(135deg,#1e8a2d,#0b5cad)">SELECT * ;</div>
+    <div class="body"><h2>SQL query builder</h2><p>Six two-table databases with real SQL. Build queries from a design grid or type them, see the equi-join pair up records, and set build, fix and predict tasks.</p><span class="go">Open →</span></div></a>
+  <a class="card" href="/live/"><div class="pic" style="background:linear-gradient(180deg,#12002b,#4a0063);color:#00f0ff;text-shadow:2px 2px 0 #ff00aa">▲ ◆ ● ■</div>
+    <div class="body"><h2>Live quiz game</h2><p>Choose questions and a theme. Pupils join on their own devices with a code and get a random computing-themed name. Points, streaks and a podium.</p><span class="go">Open →</span></div></a>
+</div>
+<div class="about">
+  <h2>Good to know</h2>
+  <ul>
+    <li>Everything follows the N5 course specification and uses SQA-style reference language. The questions are our own, written in the style of the exam.</li>
+    <li>The starter, stepper and SQL tools run entirely in your browser. The live quiz keeps each game in memory only while it runs and saves nothing about pupils afterwards (only daily visit totals are counted): no accounts, no cookies, and pupils play under random names. If you ask for names for your results spreadsheet, they appear only in your download, never on the board.</li>
+    <li>Works on a projector or interactive board: every tool has bigger and smaller text (<kbd>+</kbd> <kbd>−</kbd>) and full screen (<kbd>F</kbd>).</li>
+    <li>The approach owes a lot to Scottish computing education research, including the work behind the SQA reference language and the PLAN C programme for teachers: see <a href="https://national5computing.co.uk/local/n5dash/science.php?from=gh-tools">Built with science</a>.</li>
+    <li>Pupils who want to keep going can revise on <a href="https://national5computing.co.uk/?from=gh-tools">national5computing.co.uk</a>.</li>
+  </ul>
+</div>
+<p class="foot">Open-source teacher tools from <a href="https://national5computing.co.uk/?from=gh-tools">national5computing.co.uk</a> · MIT licence · this copy has 18 sample questions: the full bank is part of the course</p>
+</body>
+</html>

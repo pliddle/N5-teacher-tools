@@ -1,0 +1,52 @@
+/* Teacher tools: shared look. Built for a classroom projector: big type, strong contrast, keyboard controls.
+   Each tool page sets its own layout below the header bar. */
+:root {
+  --accent:#0b5cad; --accent-dark:#083f78; --amber:#ffb300; --ink:#1d2733; --muted:#4a5868; --line:#c5ccd6;
+  --panel:#f5f7fa; --hi:#fff1a8; --hi-edge:#8a5a00; --good:#0f6b3a; --good-bg:#e3f4ea; --bad:#a3231f; --bad-bg:#fdecea;
+  --mono:ui-monospace,"Cascadia Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+  --scale:1;
+}
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+html { font-size:calc(18px * var(--scale)); }
+body { margin:0; font:1rem/1.45 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:#eef2f7; min-height:100vh; }
+a { color:var(--accent); }
+h1, h2, h3 { line-height:1.2; }
+button, select, input, textarea { font:inherit; }
+button, .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4em; min-height:2.6rem; padding:.35rem .95rem;
+  border:2px solid var(--accent); border-radius:.6rem; background:#fff; color:var(--accent); font-weight:700; cursor:pointer; text-decoration:none; }
+button.primary, .btn.primary { background:var(--accent); color:#fff; }
+button.amber { background:var(--amber); border-color:#b37d00; color:var(--ink); }
+button:disabled { border-color:var(--line); color:#6b7785; background:var(--panel); cursor:not-allowed; }
+button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+select, input[type=text], input[type=number] { min-height:2.6rem; padding:.3rem .5rem; border:2px solid #5d6b7a; border-radius:.6rem; background:#fff; color:var(--ink); max-width:100%; }
+:focus-visible { outline:3px solid #f0a000; outline-offset:2px; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.muted { color:var(--muted); }
+kbd { font:600 .8em var(--mono); border:1px solid #9aa6b3; border-bottom-width:2px; border-radius:4px; padding:0 .3em; background:#fff; color:var(--ink); }
+
+/* Header bar */
+.bar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; padding:.4rem .8rem; background:linear-gradient(100deg,var(--accent),var(--accent-dark)); color:#fff; }
+.bar .home { display:flex; align-items:center; gap:.5rem; color:#fff; text-decoration:none; font-weight:700; }
+.bar .home img { width:2.1rem; height:2.1rem; }
+.bar .home small { display:block; font-weight:400; opacity:.85; font-size:.75rem; }
+.bar h1 { font-size:1.15rem; margin:0 .4rem 0 0; padding-left:.7rem; border-left:2px solid rgba(255,255,255,.4); }
+.bar .grow { flex:1; }
+.bar .tools { display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; }
+.bar button { min-height:2.2rem; padding:.2rem .65rem; background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.55); color:#fff; }
+.bar button:hover { background:rgba(255,255,255,.25); }
+.bar button[aria-pressed="true"] { background:var(--amber); color:var(--ink); border-color:var(--amber); }
+.bar select { min-height:2.2rem; }
+
+main.tool { padding:.8rem; }
+.panel { background:#fff; border:1px solid var(--line); border-radius:.8rem; padding:.8rem 1rem; min-width:0; }
+.panel h2 { font-size:1rem; margin:0 0 .5rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.msg { padding:.5rem .8rem; border-radius:.6rem; border-left:.4rem solid var(--accent); background:var(--panel); }
+.msg.good { border-color:var(--good); background:var(--good-bg); }
+.msg.bad { border-color:var(--bad); background:var(--bad-bg); }
+.msg.warn { border-color:var(--hi-edge); background:#fff8d6; }
+.msg:empty { display:none; }
+pre, code { font-family:var(--mono); }
+.foot { text-align:center; font-size:.8rem; color:var(--muted); padding:1rem; }
+
+@media (prefers-reduced-motion:reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }

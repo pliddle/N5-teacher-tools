@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: SQL query builder (full screen) - N5 Computing Science
+  Spec topic ids: DDD.DESIGN.query_design, DDD.IMPL.sql, DDD.IMPL.relational, DDD.TEST.sql
+  Six two-table databases (themes.json), each with tasks: build a query, fix a statement, or predict the output.
+  Real SQLite in the browser (sql.js, MIT licence). The design grid writes the SQL; the SQL can also be typed.
+  Changes are kept until "Reset data", and highlighted in the tables. Nothing is sent to a server.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL query builder · N5 Computing teacher tools</title>
+<meta name="description" content="Free SQL query builder for N5 Computing Science lessons: fill in a query design, see the SQL it makes and run it on linked tables.">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/teach.css">
+<style>
+  .pick { display:flex; flex-wrap:wrap; gap:.5rem .8rem; align-items:center; margin-bottom:.7rem; }
+  .pick label { font-weight:700; }
+  .pick select#task { min-width:min(34rem, 100%); }
+  .task { background:#fff; border:2px solid var(--accent); border-radius:.8rem; padding:.7rem 1rem; margin-bottom:.7rem; }
+  .task p { margin:.1rem 0 .5rem; font-size:1.2rem; }
+  .chip { display:inline-block; font-size:.8rem; font-weight:700; padding:.1rem .6rem; border-radius:999px; background:var(--amber); color:var(--ink); margin-right:.4rem; vertical-align:middle; }
+  .chip.lv { background:var(--panel); border:1px solid var(--line); }
+  .task .row { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .task pre { background:#10202f; color:#fff; padding:.5rem .8rem; border-radius:.5rem; margin:.5rem 0 0; white-space:pre-wrap; }
+  .cols { display:grid; gap:.7rem; grid-template-columns:minmax(0,1fr); align-items:start; }
+  @media (min-width:1000px) { .cols { grid-template-columns:minmax(15rem,.7fr) minmax(0,1.15fr) minmax(0,1.25fr); } .cols.nogrid { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+  .design fieldset { border:1px solid var(--line); border-radius:.6rem; margin:0 0 .6rem; padding:.4rem .7rem; }
+  .design legend { font-weight:700; padding:0 .3rem; }
+  .checks { display:flex; flex-wrap:wrap; gap:0 .9rem; }
+  .checks label { display:inline-flex; align-items:center; gap:.35rem; min-height:2.2rem; }
+  .checks input { width:1.15rem; height:1.15rem; flex:none; }
+  .checks .tname { width:100%; font-size:.8rem; color:var(--muted); font-weight:700; margin-top:.2rem; }
+  .crow { display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; margin:.25rem 0; }
+  .crow input[type=text] { width:7.5em; }
+  textarea#sql { width:100%; min-height:8.5em; font:600 1.15rem/1.45 var(--mono); background:#10202f; color:#fff; border:0; border-radius:.6rem; padding:.6rem .8rem; resize:vertical; caret-color:var(--amber); }
+  .runrow { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.5rem 0; }
+  .note { font-size:.85rem; color:var(--muted); }
+  table.grid { border-collapse:collapse; font:.92rem var(--mono); }
+  #tables table.grid { font-size:.8rem; }
+  table.grid caption { text-align:left; font:700 1rem "Atkinson Hyperlegible",system-ui,sans-serif; margin:.3rem 0; }
+  table.grid th, table.grid td { border:1px solid var(--line); padding:.15rem .5rem; text-align:left; white-space:nowrap; }
+  table.grid th { background:var(--panel); font-family:"Atkinson Hyperlegible",system-ui,sans-serif; }
+  table.grid th.pk { text-decoration:underline; }
+  table.grid tr.src td { background:var(--hi); font-weight:700; }
+  table.grid tr.new td, table.grid td.upd { background:#c9f0d6; font-weight:700; }
+  table.grid tr.del td { background:var(--bad-bg); color:var(--bad); text-decoration:line-through; }
+  #out tbody tr { cursor:pointer; }
+  #out tbody tr:hover td { background:#f0f6ff; }
+  #out tbody tr.on td { background:var(--hi); font-weight:700; }
+  .scroll { overflow-x:auto; }
+  .count { font-weight:700; margin:.4rem 0; }
+  .struct { font:.9rem var(--mono); margin:.2rem 0 .5rem; }
+  .struct u { text-decoration:underline; }
+  .key { display:flex; flex-wrap:wrap; gap:.3rem .8rem; font-size:.8rem; color:var(--muted); margin-top:.4rem; }
+  .key span::before { content:""; display:inline-block; width:.9em; height:.9em; margin-right:.3em; vertical-align:-.1em; border:1px solid var(--line); background:var(--c); }
+</style>
+</head>
+<body>
+<header class="bar" id="bar"></header>
+<main class="tool">
+  <div class="pick">
+    <label for="theme">Database</label><select id="theme"></select>
+    <label for="task">Task</label><select id="task"></select>
+    <button type="button" id="reset" title="Put the starting data back">Reset data</button>
+    <button type="button" id="showgrid" aria-pressed="true">Query design grid</button>
+    <span class="note" id="about"></span>
+  </div>
+
+  <section class="task" id="taskbox" hidden aria-live="polite">
+    <p><span class="chip" id="tkind"></span><span class="chip lv" id="tlevel"></span><span id="ttext"></span></p>
+    <div class="row">
+      <button type="button" class="primary" id="check">Check the answer</button>
+      <button type="button" id="model">Show a model answer</button>
+    </div>
+    <div class="msg" id="tmsg" style="margin-top:.5rem"></div>
+    <div id="modelbox" hidden><pre id="modelsql"></pre><div class="row" style="margin-top:.4rem"><button type="button" id="usemodel">Put it in the SQL box</button></div></div>
+  </section>
+
+  <div class="cols" id="cols">
+    <section class="panel design" id="design" aria-labelledby="h-design">
+      <h2 id="h-design">Query design</h2>
+      <fieldset><legend>Table(s)</legend><div class="checks" id="g-tables"></div></fieldset>
+      <fieldset><legend>Field(s)</legend><div class="checks" id="g-fields"></div></fieldset>
+      <fieldset><legend>Search criteria</legend>
+        <div class="checks"><label><input type="checkbox" id="g-join"> <span id="g-joinlabel"></span></label></div>
+        <div id="g-conds"></div></fieldset>
+      <fieldset><legend>Sort order</legend><div id="g-sorts"></div></fieldset>
+      <button type="button" id="g-clear">Clear the design</button>
+      <p class="note">Changing the design rewrites the SQL and runs it.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-sql">
+      <h2 id="h-sql">SQL</h2>
+      <label for="sql" class="sr">SQL statement</label>
+      <textarea id="sql" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+      <div class="runrow"><button type="button" class="primary" id="run">Run <kbd>Ctrl</kbd>+<kbd>Enter</kbd></button>
+        <button type="button" id="clearsql">Clear</button></div>
+      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+      <h2 style="margin-top:.8rem">Output</h2>
+      <div class="scroll"><table class="grid" id="out"></table></div>
+      <p class="count" id="outcount"></p>
+      <p class="note" id="link" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-data">
+      <h2 id="h-data">The database</h2>
+      <div id="struct"></div>
+      <div id="tables"></div>
+      <div class="key"><span style="--c:var(--hi)">row used by the selected output row</span><span style="--c:#c9f0d6">added or changed</span><span style="--c:var(--bad-bg)">deleted</span></div>
+      <p class="note">Primary keys are underlined. Foreign keys are marked *.</p>
+    </section>
+  </div>
+</main>
+<p class="foot">Real SQLite running in this browser. N5 SQL: SELECT, FROM, WHERE (AND, OR, =, &lt;, &gt;, &lt;=, &gt;=), ORDER BY, the equi-join, INSERT, UPDATE and DELETE.</p>
+
+<script src="/assets/teach.js"></script>
+<script src="/assets/sqljs/sql-wasm.js"></script>
+<script>
+"use strict";
+const { $, esc } = Teach;
+Teach.bar("SQL query builder");
+let SQL, THEMES, theme, db, task = null, lastRun = null;
+const OPS = ["=", "<", ">", "<=", ">="];
+
+/* ---------- Database helpers ---------- */
+const fresh = () => { const d = new SQL.Database(); d.run("PRAGMA foreign_keys = ON;"); d.run(theme.sql); return d; };
+const tableNames = () => [theme.join[2], theme.join[0]];              // parent first, then child
+function columns(d, t) { return d.exec("PRAGMA table_info(" + t + ")")[0].values.map(r => ({ name: r[1], type: r[2], pk: r[5] > 0 })); }
+function snapshot(d) {
+  const s = {};
+  for (const t of tableNames()) { const r = d.exec("SELECT rowid, * FROM " + t + " ORDER BY rowid"); s[t] = r.length ? r[0].values : []; }
+  return s;
+}
+const fmt = (col, v) => v === null || v === undefined ? "" : (typeof v === "number" && theme.dp[col] !== undefined ? v.toFixed(theme.dp[col]) : String(v));
+const isSelect = s => /^\s*SELECT\b/i.test(s);
+// Split a script into statements (semicolons inside quotes do not count).
+function statements(text) {
+  const out = []; let cur = "", q = null;
+  for (const ch of text) {
+    if (q) { if (ch === q) q = null; cur += ch; continue; }
+    if (ch === '"' || ch === "'") { q = ch; cur += ch; continue; }
+    if (ch === ";") { if (cur.trim()) out.push(cur.trim()); cur = ""; continue; }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+// Run a script on a database, all or nothing. Returns {cols, rows} for the last SELECT, changed, error.
+function runScript(d, text) {
+  const sts = statements(text), res = { cols: null, rows: null, changed: 0, error: "", last: "" };
+  if (!sts.length) { res.error = "Type an SQL statement first."; return res; }
+  d.run("BEGIN");
+  try {
+    for (const s of sts) {
+      res.last = s;
+      if (isSelect(s)) {
+        const st = d.prepare(s); res.cols = st.getColumnNames(); res.rows = [];
+        while (st.step()) res.rows.push(st.get());
+        st.free();
+      } else { d.run(s); res.changed += d.getRowsModified(); res.cols = null; res.rows = null; }
+    }
+    d.run("COMMIT");
+  } catch (e) { d.run("ROLLBACK"); res.error = String(e.message || e); res.cols = res.rows = null; res.changed = 0; }
+  return res;
+}
+function friendly(text) {
+  const [child, ccol, parent, pcol] = theme.join, names = tableNames().join(" and ");
+  const H = [
+    [/no such column: (\S+)/i, m => "There is no field called " + m[1] + ". Check the spelling and capital letters, and that its table is listed after FROM. (If it is text, it needs quotes.)"],
+    [/no such table: (\S+)/i, m => "There is no table called " + m[1] + ". The tables are " + names + "."],
+    [/ambiguous column name: (\S+)/i, m => m[1] + " is in both tables, so say which one: " + parent + "." + m[1] + " or " + child + "." + m[1] + "."],
+    [/FOREIGN KEY constraint failed/i, () => "Referential integrity stopped this. Every " + ccol + " in " + child + " must match a " + pcol + " that exists in " + parent + ", so a " + parent + " record that is still used cannot be deleted, and a " + child + " record cannot use a " + ccol + " that does not exist."],
+    [/UNIQUE constraint failed: (\S+)/i, m => "That primary key value is already used (" + m[1] + "). Every record needs a different primary key."],
+    [/NOT NULL constraint failed: (\S+)/i, m => m[1] + " must have a value."],
+    [/(\d+) values for (\d+) columns|has (\d+) columns but (\d+) values/i, () => "The number of values does not match the number of fields."],
+    [/incomplete input/i, () => "The statement stops too early. Check it is finished and that every quote is closed."],
+    [/near "(.*?)": syntax error/i, m => "SQL could not understand the statement near \"" + m[1] + "\". Check the keywords and their order: SELECT, FROM, WHERE, ORDER BY."],
+    [/cannot commit|cannot start a transaction/i, () => "Write the statements without BEGIN or COMMIT."]
+  ];
+  for (const [re, f] of H) { const m = re.exec(text); if (m) return "Error: " + f(m); }
+  return "Error: " + text;
+}
+
+/* ---------- Drawing the data ---------- */
+function drawStruct() {
+  const [child, ccol] = theme.join;
+  $("struct").innerHTML = tableNames().map(t => '<p class="struct">' + t + " (" + columns(db, t).map(c =>
+    (c.pk ? "<u>" + c.name + "</u>" : c.name) + (t === child && c.name === ccol ? "*" : "")).join(", ") + ")</p>").join("");
+}
+// marks: {table: {src:Set(rowid), new:Set, upd:Map(rowid -> Set(col)), del:[rows]}}
+function drawTables(marks) {
+  const [child, ccol] = theme.join;
+  $("tables").innerHTML = tableNames().map(t => {
+    const cols = columns(db, t), rows = snapshot(db)[t], m = (marks || {})[t] || {};
+    const head = cols.map(c => '<th scope="col"' + (c.pk ? ' class="pk"' : "") + ">" + c.name + (t === child && c.name === ccol ? "*" : "") + "</th>").join("");
+    const line = (r, cls) => '<tr data-rowid="' + r[0] + '"' + (cls ? ' class="' + cls + '"' : "") + ">" +
+      cols.map((c, i) => "<td" + (m.upd && m.upd.has(r[0]) && m.upd.get(r[0]).has(i) ? ' class="upd"' : "") + ">" + esc(fmt(c.name, r[i + 1])) + "</td>").join("") + "</tr>";
+    const body = rows.map(r => line(r, m.new && m.new.has(r[0]) ? "new" : m.src && m.src.has(r[0]) ? "src" : "")).join("") +
+      (m.del || []).map(r => line(r, "del")).join("");
+    return '<div class="scroll"><table class="grid" id="t-' + t + '"><caption>' + t + " (" + rows.length + (rows.length === 1 ? " record" : " records") + ")</caption><thead><tr>" + head + "</tr></thead><tbody>" + body + "</tbody></table></div>";
+  }).join("");
+}
+function diff(before, after) {
+  const marks = {};
+  for (const t of tableNames()) {
+    const b = new Map(before[t].map(r => [r[0], r])), a = new Map(after[t].map(r => [r[0], r]));
+    const m = { new: new Set(), upd: new Map(), del: [] };
+    for (const [id, r] of a) {
+      if (!b.has(id)) m.new.add(id);
+      else { const old = b.get(id), cols = new Set(); r.forEach((v, i) => { if (i && v !== old[i]) cols.add(i - 1); }); if (cols.size) m.upd.set(id, cols); }
+    }
+    for (const [id, r] of b) if (!a.has(id)) m.del.push(r);
+    marks[t] = m;
+  }
+  return marks;
+}
+
+/* ---------- Running the SQL box ---------- */
+function run() {
+  const text = $("sql").value, before = snapshot(db), res = runScript(db, text), msg = $("msg");
+  lastRun = { res, sources: null };
+  $("link").textContent = "";
+  if (res.error) {
+    msg.className = "msg bad"; msg.textContent = friendly(res.error) + (statements(text).length > 1 || !isSelect(text) ? " Nothing was changed." : "");
+    $("out").innerHTML = ""; $("outcount").textContent = ""; drawTables(); return;
+  }
+  const marks = diff(before, snapshot(db));
+  const notes = [];
+  if (res.rows) {
+    lastRun.sources = sourcesOf(res.last, res.rows.length);
+    if (crossJoin(res.last)) { const n = tableNames().map(t => snapshot(db)[t].length); notes.push(["warn", "There is no equi-join, so every " + theme.join[2] + " record is paired with every " + theme.join[0] + " record: " + n[0] + " × " + n[1] + " = " + (n[0] * n[1]) + " pairings before any other criteria. Add " + joinText() + " to the WHERE clause."]); }
+    if (!res.rows.length) { const h = caseHint(res.last); if (h) notes.push(["warn", h]); }
+  }
+  const changed = tableNames().map(t => [t, marks[t]]).filter(([, m]) => m.new.size || m.upd.size || m.del.length);
+  if (changed.length) notes.unshift(["good", changed.map(([t, m]) => t + ": " + [m.new.size && m.new.size + " added", m.upd.size && m.upd.size + " changed", m.del.length && m.del.length + " deleted"].filter(Boolean).join(", ")).join(". ") + ". The changes are shown in the tables."]);
+  else if (!res.rows) notes.unshift(["warn", "That ran, but no records were changed. Check the WHERE clause."]);
+  msg.className = "msg" + (notes.length ? " " + notes[0][0] : ""); msg.textContent = notes.map(n => n[1]).join(" ");
+  drawOutput(res);
+  drawTables(marks);
+}
+function drawOutput(res) {
+  if (!res.rows) { $("out").innerHTML = ""; $("outcount").textContent = ""; return; }
+  const cols = res.cols;
+  $("out").innerHTML = "<thead><tr>" + cols.map(c => '<th scope="col">' + esc(c) + "</th>").join("") + "</tr></thead><tbody>" +
+    (res.rows.length ? res.rows.map((r, i) => '<tr tabindex="0" data-i="' + i + '">' + r.map((v, k) => "<td>" + esc(fmt(cols[k], v)) + "</td>").join("") + "</tr>").join("")
+      : '<tr><td colspan="' + cols.length + '">No records match.</td></tr>') + "</tbody>";
+  $("outcount").textContent = res.rows.length + (res.rows.length === 1 ? " record" : " records");
+  $("link").textContent = res.rows.length && lastRun.sources ? "Select a row of the output to see which records it came from." : "";
+}
+const joinText = () => theme.join[0] + "." + theme.join[1] + " = " + theme.join[2] + "." + theme.join[3];
+function fromTables(sql) {
+  const m = /\bFROM\s+([\s\S]+?)(?:\s+WHERE\b|\s+ORDER\s+BY\b|$)/i.exec(sql.replace(/;\s*$/, ""));
+  return m ? m[1].split(",").map(s => s.trim()) : [];
+}
+function crossJoin(sql) {
+  if (fromTables(sql).length < 2) return false;
+  const [c, cc, p, pc] = theme.join.map(s => s.toLowerCase()), s = sql.toLowerCase().replace(/\s+/g, "");
+  return !s.includes(c + "." + cc + "=" + p + "." + pc) && !s.includes(p + "." + pc + "=" + c + "." + cc);
+}
+// Which stored records each output row came from: the same query again, asking for each table's rowid too.
+function sourcesOf(sql, n) {
+  const ts = fromTables(sql), known = tableNames().map(t => t.toLowerCase());
+  if (!ts.length || ts.some(t => !known.includes(t.toLowerCase()))) return null;
+  const m = /^\s*SELECT\s+([\s\S]+?)\s+FROM\b([\s\S]*)$/i.exec(sql.replace(/;\s*$/, ""));
+  if (!m) return null;
+  try {
+    const r = db.exec("SELECT " + ts.map(t => t + ".rowid").join(", ") + ", " + m[1] + " FROM" + m[2]);
+    const rows = r.length ? r[0].values : [];
+    if (rows.length !== n) return null;
+    return rows.map(row => Object.fromEntries(ts.map((t, i) => [tableNames()[known.indexOf(t.toLowerCase())], row[i]])));
+  } catch (e) { return null; }
+}
+function caseHint(sql) {
+  const lits = [...sql.matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] !== undefined ? m[1] : m[2]);
+  const snap = snapshot(db), values = new Set(Object.values(snap).flat().flatMap(r => r.slice(1)).filter(v => typeof v === "string"));
+  for (const l of lits) {
+    if (values.has(l)) continue;
+    const near = [...values].find(v => v.toLowerCase() === l.trim().toLowerCase());
+    if (near) return 'No records match "' + l + '", but there is "' + near + '". Text has to match exactly: capital letters and spaces count.';
+  }
+  return "";
+}
+function highlight(i) {
+  document.querySelectorAll("#out tr.on").forEach(tr => tr.classList.remove("on"));
+  const src = lastRun && lastRun.sources && lastRun.sources[i];
+  if (!src) return;
+  $("out").tBodies[0].rows[i].classList.add("on");
+  const marks = {}; for (const t of Object.keys(src)) marks[t] = { src: new Set([src[t]]) };
+  drawTables(marks);
+  const [child, ccol, parent, pcol] = theme.join, snap = snapshot(db), rec = t => snap[t].find(r => r[0] === src[t]);
+  const keyOf = t => { const cs = columns(db, t), k = cs.findIndex(c => c.pk); return rec(t)[k + 1]; };
+  let text = "This row comes from " + Object.keys(src).map(t => t + " " + keyOf(t)).join(" and ") + ".";
+  if (src[child] !== undefined && src[parent] !== undefined) {
+    const fk = rec(child)[columns(db, child).findIndex(c => c.name === ccol) + 1], pk = rec(parent)[columns(db, parent).findIndex(c => c.name === pcol) + 1];
+    text += fk === pk ? " They belong together: the " + child + " record's " + ccol + "* (" + fk + ") matches the " + parent + " record's " + pcol + "."
+                      : " They do not belong together: the " + child + " record's " + ccol + "* is " + fk + " but the " + parent + " record's " + pcol + " is " + pk + ".";
+  }
+  $("link").textContent = text;
+}
+
+/* ---------- The query design grid ---------- */
+let g = null;
+const blankDesign = () => ({ tables: [], fields: [], join: false, conds: [{ f: "", op: "=", v: "" }, { f: "", op: "=", v: "" }], logic: "AND", sorts: [{ f: "", dir: "ASC" }, { f: "", dir: "ASC" }] });
+function drawGrid() {
+  const ts = tableNames(), [child, ccol, parent, pcol] = theme.join;
+  $("g-tables").innerHTML = ts.map(t => '<label><input type="checkbox" data-table="' + t + '"> ' + t + "</label>").join("");
+  $("g-fields").innerHTML = ts.map(t => '<span class="tname">' + t + "</span>" + columns(db, t).map(c =>
+    '<label><input type="checkbox" data-field="' + t + "." + c.name + '"> ' + c.name + "</label>").join("")).join("");
+  $("g-joinlabel").textContent = "Equi-join: " + joinText();
+  const opts = '<option value="">(field)</option>' + ts.map(t => '<optgroup label="' + t + '">' + columns(db, t).map(c => '<option value="' + t + "." + c.name + '">' + c.name + "</option>").join("") + "</optgroup>").join("");
+  $("g-conds").innerHTML = [0, 1].map(i => (i ? '<div class="crow"><label for="g-logic" class="sr">Join the criteria with</label><select id="g-logic"><option>AND</option><option>OR</option></select></div>' : "") +
+    '<div class="crow"><label class="sr" for="g-cf' + i + '">Criterion ' + (i + 1) + ' field</label><select id="g-cf' + i + '">' + opts + "</select>" +
+    '<label class="sr" for="g-co' + i + '">operator</label><select id="g-co' + i + '">' + OPS.map(o => "<option>" + esc(o) + "</option>").join("") + "</select>" +
+    '<label class="sr" for="g-cv' + i + '">value</label><input type="text" id="g-cv' + i + '" autocomplete="off" placeholder="value"></div>').join("");
+  $("g-sorts").innerHTML = [0, 1].map(i => '<div class="crow"><label for="g-sf' + i + '">' + (i ? "then" : "Sort by") + '</label><select id="g-sf' + i + '">' + opts + "</select>" +
+    '<label class="sr" for="g-sd' + i + '">Direction</label><select id="g-sd' + i + '"><option value="ASC">ASC</option><option value="DESC">DESC</option></select></div>').join("");
+  g = blankDesign(); writeGrid();
+}
+function readGrid() {
+  g.tables = tableNames().filter(t => document.querySelector('[data-table="' + t + '"]').checked);
+  // Fields keep the order they were ticked in, as in a query design.
+  const ticked = [...document.querySelectorAll("[data-field]")].filter(x => x.checked).map(x => x.dataset.field);
+  g.fields = g.fields.filter(f => ticked.includes(f)).concat(ticked.filter(f => !g.fields.includes(f)));
+  g.join = $("g-join").checked; g.logic = $("g-logic").value;
+  [0, 1].forEach(i => { g.conds[i] = { f: $("g-cf" + i).value, op: $("g-co" + i).value, v: $("g-cv" + i).value }; g.sorts[i] = { f: $("g-sf" + i).value, dir: $("g-sd" + i).value }; });
+}
+function writeGrid() {
+  tableNames().forEach(t => { document.querySelector('[data-table="' + t + '"]').checked = g.tables.includes(t); });
+  document.querySelectorAll("[data-field]").forEach(x => { x.checked = g.fields.includes(x.dataset.field); });
+  $("g-join").checked = g.join; $("g-join").disabled = g.tables.length < 2; $("g-logic").value = g.logic;
+  [0, 1].forEach(i => { $("g-cf" + i).value = g.conds[i].f; $("g-co" + i).value = g.conds[i].op; $("g-cv" + i).value = g.conds[i].v; $("g-sf" + i).value = g.sorts[i].f; $("g-sd" + i).value = g.sorts[i].dir; });
+}
+function gridSQL() {
+  const both = g.tables.length === 2, inBoth = c => tableNames().every(t => columns(db, t).some(x => x.name === c));
+  const name = f => { const [t, c] = f.split("."); return both && inBoth(c) ? f : c; };
+  const isNum = f => { const [t, c] = f.split("."); return /INT|REAL|NUM/i.test((columns(db, t).find(x => x.name === c) || {}).type || ""); };
+  const lit = (f, v) => { v = v.trim().replace(/^["']|["']$/g, ""); return isNum(f) && v !== "" && !isNaN(Number(v)) ? v : '"' + v + '"'; };
+  const conds = g.conds.filter(c => c.f && c.v.trim() !== "").map(c => name(c.f) + " " + c.op + " " + lit(c.f, c.v));
+  const where = [];
+  if (both && g.join) where.push(joinText());
+  if (conds.length === 2 && g.logic === "OR" && where.length) where.push("(" + conds.join(" OR ") + ")");
+  else if (conds.length) where.push(conds.join("\n" + g.logic + " "));
+  const sorts = g.sorts.filter(s => s.f).map(s => name(s.f) + " " + s.dir);
+  return "SELECT " + (g.fields.length ? g.fields.map(name).join(", ") : "...") + "\nFROM " + (g.tables.length ? g.tables.join(", ") : "...") +
+    (where.length ? "\nWHERE " + where.join("\nAND ") : "") + (sorts.length ? "\nORDER BY " + sorts.join(", ") : "") + ";";
+}
+function gridChanged() {
+  readGrid();
+  if (g.tables.length < 2) g.join = false;
+  // Ticking a field also ticks its table, which is what pupils usually forget.
+  for (const f of g.fields) { const t = f.split(".")[0]; if (!g.tables.includes(t)) g.tables.push(t); }
+  g.tables = tableNames().filter(t => g.tables.includes(t));
+  writeGrid();
+  $("sql").value = gridSQL();
+  if (g.fields.length && g.tables.length) run();
+  else { $("msg").className = "msg"; $("msg").textContent = "Choose the fields to display."; $("out").innerHTML = ""; $("outcount").textContent = ""; }
+}
+
+/* ---------- Tasks ---------- */
+const KIND = { build: "Build it", fix: "Fix it", predict: "Predict" };
+function fillTasks() {
+  $("task").innerHTML = '<option value="">Free play: no task</option>' + theme.tasks.map((t, i) =>
+    '<option value="' + i + '">' + (i + 1) + ". " + KIND[t.kind] + " (" + t.level + "): " + esc(t.text.length > 70 ? t.text.slice(0, 68) + "…" : t.text) + "</option>").join("");
+}
+function chooseTask(i) {
+  task = i === "" || i === null ? null : theme.tasks[Number(i)];
+  db = fresh(); g = blankDesign(); writeGrid(); drawTables(); lastRun = null;
+  $("out").innerHTML = ""; $("outcount").textContent = ""; $("link").textContent = "";
+  $("taskbox").hidden = !task; $("modelbox").hidden = true; $("tmsg").textContent = ""; $("tmsg").className = "msg";
+  $("msg").className = "msg"; $("msg").textContent = task ? "The data has been reset for this task." : "";
+  $("sql").value = task && task.sql ? task.sql : "";
+  if (!task) return location.replace("#" + theme.id);
+  location.replace("#" + theme.id + "/" + (theme.tasks.indexOf(task) + 1));
+  $("tkind").textContent = KIND[task.kind]; $("tlevel").textContent = task.level === "A" ? "A: harder" : "C: core"; $("ttext").textContent = task.text;
+  $("check").hidden = task.kind === "predict"; $("model").hidden = task.kind === "predict";
+  if (task.kind === "predict") { $("msg").className = "msg warn"; $("msg").textContent = "Predict first: which records, how many, and in what order? Then press Run."; }
+  if (task.kind === "fix") { $("msg").className = "msg warn"; $("msg").textContent = "Run it as it is first, and look at what happens."; }
+  if (task.solution) $("modelsql").textContent = task.solution;
+}
+function checkTask() {
+  if (!task || !task.solution) return;
+  const a = fresh(), b = fresh(), mine = runScript(a, $("sql").value), want = runScript(b, task.solution), m = $("tmsg");
+  const say = (ok, text) => { m.className = "msg " + (ok ? "good" : "bad"); m.textContent = text; };
+  if (mine.error) return say(false, friendly(mine.error));
+  if (want.rows) {
+    if (!mine.rows) return say(false, "This task needs a SELECT statement.");
+    const lower = c => c.toLowerCase().replace(/^.*\./, ""), mc = mine.cols.map(lower), wc = want.cols.map(lower);
+    const extra = mc.filter(c => !wc.includes(c)), missing = wc.filter(c => !mc.includes(c));
+    if (extra.length) return say(false, "This shows a field that was not asked for (" + extra.join(", ") + "). Extra fields lose the mark in the exam.");
+    if (missing.length) return say(false, "A field that was asked for is missing (" + missing.join(", ") + ").");
+    const key = r => JSON.stringify(wc.map(c => r[mc.indexOf(c)])), got = mine.rows.map(key), exp = want.rows.map(r => JSON.stringify(r));
+    if (crossJoin(statements($("sql").value).pop()) && !crossJoin(task.solution)) return say(false, "Both tables are used but there is no equi-join (" + joinText() + "), so records are paired that do not belong together.");
+    if (got.length !== exp.length) return say(false, "This finds " + got.length + (got.length === 1 ? " record" : " records") + "; the task needs " + exp.length + ". Check the search criteria" + (/\b(AND|OR)\b/i.test(task.solution) ? ", including AND or OR." : "."));
+    if (got.slice().sort().join() !== exp.slice().sort().join()) return say(false, "The right number of records, but not the right ones. Check the search criteria and the values.");
+    if (/ORDER\s+BY/i.test(task.solution) && got.join() !== exp.join()) return say(false, "The right records, but not in the right order. Check ORDER BY: which field or fields, and ASC or DESC.");
+    return say(true, "Correct: the output matches the model answer exactly." + (mc.join() !== wc.join() ? " (The fields are in a different order, which does not change the records found.)" : ""));
+  }
+  if (mine.rows && !/(INSERT|UPDATE|DELETE)\b/i.test($("sql").value)) return say(false, "This task changes the data, so it needs " + statements(task.solution).map(s => s.split(/\s+/)[0].toUpperCase()).join(" then ") + ", not SELECT.");
+  const da = JSON.stringify(snapshot(a)), dbb = JSON.stringify(snapshot(b));
+  if (da !== dbb) {
+    if (mine.changed !== want.changed) return say(false, "This changes " + mine.changed + (mine.changed === 1 ? " record" : " records") + "; the task needs " + want.changed + "." + (/^\s*(UPDATE|DELETE)/i.test($("sql").value) && !/\bWHERE\b/i.test($("sql").value) ? " Without WHERE, every record in the table is changed." : " Check the WHERE clause."));
+    return say(false, "The right number of records changed, but the data is not right. Check the values, the field names and the order of the values.");
+  }
+  say(true, "Correct: the tables end up exactly as the model answer leaves them.");
+}
+
+/* ---------- Start ---------- */
+function chooseTheme(id) {
+  theme = THEMES.find(t => t.id === id) || THEMES[0];
+  $("theme").value = theme.id; $("about").textContent = theme.about;
+  db = fresh(); drawStruct(); drawGrid(); fillTasks(); chooseTask("");
+  $("sql").value = ""; drawTables();
+}
+Promise.all([initSqlJs({ locateFile: f => "/assets/sqljs/" + f }), fetch("themes.json").then(r => r.json())]).then(([s, data]) => {
+  SQL = s; THEMES = data.themes;
+  $("theme").innerHTML = THEMES.map(t => '<option value="' + t.id + '">' + esc(t.name) + "</option>").join("");
+  const [hid, hn] = location.hash.slice(1).split("/");
+  chooseTheme(hid);
+  if (hn && theme.tasks[hn - 1]) { $("task").value = String(hn - 1); chooseTask(hn - 1); }
+  $("theme").addEventListener("change", e => chooseTheme(e.target.value));
+  $("task").addEventListener("change", e => chooseTask(e.target.value));
+  $("reset").addEventListener("click", () => { db = fresh(); drawTables(); $("out").innerHTML = ""; $("outcount").textContent = ""; $("link").textContent = ""; $("msg").className = "msg"; $("msg").textContent = "The starting data is back."; });
+  $("run").addEventListener("click", run);
+  $("clearsql").addEventListener("click", () => { $("sql").value = ""; $("sql").focus(); });
+  $("sql").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); } });
+  $("design").addEventListener("change", e => { if (e.target.matches("input, select")) gridChanged(); });
+  $("design").addEventListener("input", e => { if (e.target.matches("input[type=text]")) gridChanged(); });
+  $("g-clear").addEventListener("click", () => { g = blankDesign(); writeGrid(); $("sql").value = ""; $("out").innerHTML = ""; $("outcount").textContent = ""; $("msg").textContent = ""; $("msg").className = "msg"; });
+  $("showgrid").addEventListener("click", e => { const on = e.target.getAttribute("aria-pressed") !== "true"; e.target.setAttribute("aria-pressed", String(on)); $("design").hidden = !on; $("cols").classList.toggle("nogrid", !on); });
+  $("out").addEventListener("click", e => { const tr = e.target.closest("tbody tr[data-i]"); if (tr) highlight(Number(tr.dataset.i)); });
+  $("out").addEventListener("focusin", e => { const tr = e.target.closest("tbody tr[data-i]"); if (tr) highlight(Number(tr.dataset.i)); });
+  $("check").addEventListener("click", checkTask);
+  $("model").addEventListener("click", () => { $("modelbox").hidden = !$("modelbox").hidden; });
+  $("usemodel").addEventListener("click", () => { $("sql").value = task.solution; $("sql").focus(); });
+}).catch(e => { $("msg").className = "msg bad"; $("msg").textContent = "The database engine did not load: " + e.message; });
+</script>
+</body>
+</html>

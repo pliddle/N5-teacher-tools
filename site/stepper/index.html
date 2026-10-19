@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<!--
+  Teacher tools: code stepper (full screen) - N5 Computing Science
+  Spec topic ids: SDD.IMPL.assign_arith, SDD.IMPL.concatenation, SDD.IMPL.selection, SDD.IMPL.iteration,
+                  SDD.IMPL.predefined_functions, SDD.IMPL.standard_algorithms, SDD.IMPL.data_types, SDD.TEST.errors
+  Step through reference-language programs one line at a time: the current line, the working for that line
+  (values put in, conditions tested), the variables (arrays as boxes), the display, the values still to be typed,
+  and a trace table. Python can be shown alongside. Predict first before any line that displays something.
+  Uses the course's reference-language interpreter (assets/reflang.js). Nothing is sent to a server.
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code stepper · N5 Computing teacher tools</title>
+<meta name="description" content="Free code stepper for N5 Computing Science: run SQA reference language programs line by line, with the variables, a trace table and Python alongside.">
+<link rel="icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/teach.css">
+<style>
+  .pick { display:flex; flex-wrap:wrap; gap:.5rem .8rem; align-items:center; margin-bottom:.6rem; }
+  .pick label { font-weight:700; }
+  .pick #prog { min-width:min(24rem,100%); }
+  .about { font-size:1.1rem; margin:0 0 .6rem; }
+  .layout { display:grid; gap:.7rem; grid-template-columns:minmax(0,1fr); align-items:start; }
+  @media (min-width:1000px) { .layout { grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); } }
+  .codewrap { display:grid; grid-template-columns:minmax(0,1fr); gap:.5rem; }
+  .codewrap.py .pyhead { margin-bottom:0; }
+  ol.code { list-style:none; margin:0; padding:.4rem 0; font:600 1.15rem/1.55 var(--mono); background:#10202f; color:#e8eef5; border-radius:.6rem; overflow-x:auto; counter-reset:none; }
+  ol.code li { display:flex; gap:.6rem; padding:0 .7rem 0 .3rem; border-left:.4rem solid transparent; white-space:pre; min-height:1.55em; }
+  ol.code li .n, ol.code li .m { flex:none; }
+  ol.code li .n { color:#8fa3b8; min-width:1.8em; text-align:right; user-select:none; font-weight:400; }
+  ol.code li .m { width:1em; color:var(--amber); }
+  ol.code li.on { background:#3d3300; border-left-color:var(--amber); color:#fff; }
+  ol.code li.done { color:#b9c6d4; }
+  ol.code li.skip { opacity:.45; }
+  ol.code li.bad { background:#5a1512; border-left-color:#ff6b61; }
+  ol.code .kw { color:#7fc8ff; } ol.code .st { color:#ffd479; } ol.code .nu { color:#b4f0a8; }
+  ol.code.pyc { background:#13261b; }
+  .pyhead { font:.8rem var(--mono); color:var(--muted); margin:.2rem 0; }
+  textarea#src { width:100%; min-height:12em; font:600 1.1rem/1.5 var(--mono); border:2px solid #5d6b7a; border-radius:.6rem; padding:.5rem; }
+  .controls { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin:.6rem 0; }
+  .controls .speed { display:inline-flex; align-items:center; gap:.3rem; font-size:.85rem; }
+  .opts { display:flex; flex-wrap:wrap; gap:.3rem 1rem; font-size:.9rem; }
+  .opts label { display:inline-flex; align-items:center; gap:.35rem; min-height:2rem; }
+  .explain { font-size:1.25rem; border-left:.5rem solid var(--accent); background:#fff; border-radius:.6rem; padding:.6rem .9rem; min-height:4.2em; }
+  .explain.bad { border-color:var(--bad); background:var(--bad-bg); }
+  .explain.good { border-color:var(--good); background:var(--good-bg); }
+  .explain .work { font:600 1.05rem/1.6 var(--mono); margin-top:.35rem; color:var(--accent-dark); }
+  .explain .work span { display:block; }
+  .explain .work span::before { content:"→ "; color:var(--muted); }
+  .explain .work span:first-child::before { content:""; }
+  .side > * + * { margin-top:.7rem; }
+  .vars { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .var { border:2px solid var(--line); border-radius:.6rem; padding:.25rem .7rem; background:var(--panel); font:600 1.15rem var(--mono); transition:background-color .3s; }
+  .var b { display:block; font:700 .75rem "Atkinson Hyperlegible",system-ui,sans-serif; color:var(--muted); }
+  .var .ty { display:block; font:600 .65rem "Atkinson Hyperlegible",system-ui,sans-serif; letter-spacing:.03em; color:var(--muted); }
+  .var.changed { background:var(--hi); border-color:var(--hi-edge); }
+  .arr { display:flex; gap:0; margin-top:.15rem; }
+  .arr span { display:flex; flex-direction:column; align-items:center; border:1px solid #8a97a6; margin-left:-1px; padding:.1rem .45rem; background:#fff; min-width:2.2em; }
+  .arr span i { font:normal .7rem system-ui,sans-serif; color:var(--muted); }
+  .arr span.at { background:var(--amber); }
+  .out { font:600 1.15rem/1.45 var(--mono); background:#10202f; color:#fff; border-radius:.6rem; padding:.5rem .8rem; min-height:2.6em; white-space:pre-wrap; }
+  .out .new { color:var(--amber); }
+  .queue { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; font:600 1rem var(--mono); }
+  .queue span { border:2px solid var(--accent); border-radius:.4rem; padding:.05rem .5rem; background:#fff; }
+  .queue span.used { border-color:var(--line); color:#8794a3; text-decoration:line-through; }
+  .queue span.next { background:var(--amber); border-color:#b37d00; }
+  .queue input { width:min(18em,100%); }
+  .trace { overflow:auto; max-height:22rem; }
+  .trace table { border-collapse:collapse; font:.95rem var(--mono); width:100%; }
+  .trace th, .trace td { border:1px solid var(--line); padding:.1rem .45rem; text-align:left; white-space:nowrap; }
+  .trace th { background:var(--panel); position:sticky; top:0; font-family:"Atkinson Hyperlegible",system-ui,sans-serif; }
+  .trace td.ch { background:var(--hi); font-weight:700; }
+  .trace tr.on td { outline:2px solid var(--amber); outline-offset:-2px; }
+  .trace tr.future { display:none; }
+  .predict { border:2px solid var(--hi-edge); background:#fff8d6; border-radius:.6rem; padding:.6rem .8rem; font-size:1.15rem; }
+  .predict .row { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.4rem; }
+  .err { margin-top:.4rem; }
+  details > summary { cursor:pointer; font-weight:700; min-height:2.4rem; display:flex; align-items:center; }
+  .match { display:grid; gap:.5rem 1rem; grid-template-columns:minmax(0,1fr); }
+  @media (min-width:700px) { .match { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+  .match h3 { margin:.2rem 0; font-size:.95rem; color:var(--muted); }
+  .match ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.35rem; }
+  .match button { width:100%; justify-content:flex-start; text-align:left; font:600 1rem var(--mono); white-space:pre-wrap;
+    border-color:var(--line); min-height:2.4rem; padding:.3rem .6rem; }
+  .match button[aria-pressed="true"] { background:var(--amber); border-color:#b37d00; color:var(--ink); }
+  .match button.done { background:var(--good-bg); border-color:var(--good); color:var(--good); cursor:default; }
+  .match button.done::after { content:" ✓"; }
+  .match button.wrong { background:var(--bad-bg); border-color:var(--bad); color:var(--bad); }
+  .match .n { color:var(--muted); font-weight:400; margin-right:.5em; }
+  @media (prefers-reduced-motion:reduce) { .var { transition:none; } }
+</style>
+</head>
+<body>
+<header class="bar" id="bar"></header>
+<main class="tool">
+  <div class="pick">
+    <label for="prog">Program</label><select id="prog"></select>
+    <button type="button" id="edit" aria-pressed="false">Edit the code</button>
+    <button type="button" id="pyon" aria-pressed="false">Python alongside</button>
+    <button type="button" id="matchon" aria-pressed="false">Match the lines</button>
+  </div>
+  <p class="about" id="about"></p>
+  <div class="msg warn err" id="errbox" hidden><span id="errtext"></span> <button type="button" id="errshow">Reveal the type of error</button> <strong id="errkind" hidden></strong></div>
+
+  <div class="layout">
+    <div>
+      <section class="panel" aria-labelledby="h-code">
+        <h2 id="h-code">Program</h2>
+        <div class="codewrap" id="codewrap">
+          <div><ol class="code" id="code" aria-label="Reference language"></ol></div>
+          <div id="pywrap" hidden><p class="pyhead">The same program in Python</p><ol class="code pyc" id="pycode" aria-label="Python"></ol><p class="pyhead" id="pyimports"></p></div>
+        </div>
+        <div id="editbox" hidden>
+          <label for="src" class="sr">Program code</label><textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          <div class="controls"><button type="button" class="primary" id="apply">Use this code</button><span class="note muted">Keywords in capitals; indent with spaces. Break it on purpose to see a syntax error.</span></div>
+        </div>
+        <div class="controls">
+          <button type="button" id="back" title="Back (←)">◀ Back</button>
+          <button type="button" class="primary" id="step" title="Step (Space or →)">Step ▶</button>
+          <button type="button" id="run" aria-pressed="false" title="Run or pause (P)">Run</button>
+          <button type="button" id="reset" title="Reset (R)">Reset</button>
+          <label class="speed" for="speed">Speed <input type="range" id="speed" min="200" max="2000" step="100" value="900" dir="rtl"></label>
+        </div>
+        <section id="matchbox" hidden style="margin-top:.8rem;border-top:1px solid var(--line);padding-top:.6rem">
+          <h2 style="font-size:1rem;margin:0 0 .3rem">Match the lines</h2>
+          <p class="muted" style="font-size:.9rem;margin:0 0 .5rem">Pupils write Python, but the exam shows code in the reference language. Click a line on the left, then the Python line that does the same thing.</p>
+          <div class="match"><div><h3>Reference language</h3><ol id="m-ref"></ol></div><div><h3>Python</h3><ol id="m-py"></ol></div></div>
+          <div class="msg" id="m-msg" role="status" aria-live="polite" style="margin-top:.5rem"></div>
+          <div class="controls"><button type="button" id="m-again">Shuffle and start again</button></div>
+        </section>
+        <div class="opts">
+          <label><input type="checkbox" id="predict-on" checked> Predict before each line that displays something</label>
+          <label><input type="checkbox" id="work-on" checked> Show the working</label>
+        </div>
+        <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">Keys: <kbd>Space</kbd> or <kbd>→</kbd> step, <kbd>←</kbd> back, <kbd>P</kbd> run or pause, <kbd>R</kbd> reset, <kbd>F</kbd> full screen, <kbd>+</kbd>/<kbd>−</kbd> text size.</p>
+      </section>
+      <div class="predict" id="predict" hidden role="dialog" aria-labelledby="predict-q">
+        <span id="predict-q"></span>
+        <div class="row"><button type="button" class="amber" id="predict-go">Show what it displays</button><span class="muted">Ask the class first. Press Space when ready.</span></div>
+      </div>
+      <div class="explain" id="explain" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="side">
+      <section class="panel" aria-labelledby="h-vars"><h2 id="h-vars">Variables</h2><div class="vars" id="vars"></div></section>
+      <section class="panel" aria-labelledby="h-out"><h2 id="h-out">Display</h2><div class="out" id="out" aria-live="polite"></div></section>
+      <section class="panel" id="inputs-panel" aria-labelledby="h-in"><h2 id="h-in">Typed at the keyboard</h2>
+        <div class="queue" id="queue"></div>
+        <details><summary>Change the values typed</summary>
+          <label for="inputs">Values, in order, separated by commas</label><br><input type="text" id="inputs" autocomplete="off">
+          <button type="button" id="inputs-go">Use these</button></details></section>
+      <section class="panel" aria-labelledby="h-trace"><h2 id="h-trace">Trace table</h2>
+        <div class="opts" style="margin-bottom:.4rem"><label><input type="checkbox" id="trace-all"> Fill it in all at once</label>
+          <label><input type="checkbox" id="trace-changes" checked> Only lines that change something</label></div>
+        <div class="trace" id="trace"></div></section>
+    </div>
+  </div>
+</main>
+
+<script src="/assets/teach.js"></script>
+<script src="/assets/reflang.js"></script>
+<script src="/assets/topython.js"></script>
+<script src="programs.js"></script>
+<script>
+"use strict";
+const { $, esc } = Teach;
+Teach.bar("Code stepper");
+let prog, code = "", inputs = [], result = null, pos = -1, timer = null, revealed = -1, py = null;
+const ALL = PROGRAM_GROUPS.flatMap(g => g.programs.map(p => ({ ...p, group: g.group })));
+
+/* ---------- Program picker ---------- */
+$("prog").innerHTML = PROGRAM_GROUPS.map((g, gi) => '<optgroup label="' + esc(g.group) + '">' + g.programs.map((p, pi) =>
+  '<option value="' + gi + "." + pi + '">' + esc(p.name) + "</option>").join("") + "</optgroup>").join("");
+function load(key) {
+  const [gi, pi] = key.split(".").map(Number), g = PROGRAM_GROUPS[gi] || PROGRAM_GROUPS[0];
+  prog = { ...(g.programs[pi] || g.programs[0]), group: g.group };
+  $("prog").value = PROGRAM_GROUPS.indexOf(g) + "." + g.programs.indexOf(g.programs[pi] || g.programs[0]);
+  location.replace("#" + $("prog").value);
+  code = prog.code; inputs = (prog.inputs || []).slice();
+  $("about").textContent = prog.about || "";
+  $("errbox").hidden = !prog.kind; $("errkind").hidden = true; $("errshow").hidden = false;
+  if (prog.kind) { $("errtext").textContent = "Expected display: " + prog.expect.join(" / ") + ". Run it and compare."; $("errkind").textContent = prog.kind + " error"; }
+  $("src").value = code;
+  reset();
+}
+
+/* ---------- Running ---------- */
+function reset() {
+  stop(); revealed = -1;
+  result = runProgram(code, inputs); pos = -1;
+  try { py = toPython(code); } catch (e) { py = null; }
+  drawCode(); drawTraceHead(); render(); buildMatch();
+}
+const KW = /\b(DECLARE|INITIALLY|SET|TO|RECEIVE|FROM|KEYBOARD|SEND|DISPLAY|IF|THEN|ELSE|END|FOR|EACH|DO|WHILE|REPEAT|UNTIL|AND|OR|NOT|INTEGER|REAL|STRING|CHARACTER|BOOLEAN|TRUE|FALSE|if|elif|else|for|in|while|print|input|int|float|str|len|range|and|or|not|True|False|break|round|random|length)\b/g;
+function colour(text) {
+  // Strings first, then keywords and numbers outside strings.
+  return text.split(/("[^"]*")/).map((part, i) => i % 2 ? '<span class="st">' + esc(part) + "</span>"
+    : esc(part).replace(KW, '<span class="kw">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="nu">$1</span>')).join("");
+}
+function drawCode() {
+  const lines = code.split("\n");
+  $("code").innerHTML = lines.map((t, i) => '<li data-line="' + (i + 1) + '"' + (result.syntax && result.syntax.line === i + 1 ? ' class="bad"' : "") +
+    '><span class="m" aria-hidden="true"></span><span class="n">' + (i + 1) + "</span><span>" + colour(t) + "</span></li>").join("");
+  const pyOn = $("pyon").getAttribute("aria-pressed") === "true" && py;
+  $("pywrap").hidden = !pyOn; $("codewrap").classList.toggle("py", Boolean(pyOn));
+  $("pycode").innerHTML = "";
+  if (py) {
+    $("pycode").innerHTML = py.lines.map((t, i) => '<li data-line="' + (i + 1) + '"><span class="m" aria-hidden="true"></span><span class="n">' + (i + 1) + "</span><span>" + colour(t).replace(/\n/g, "<br>") + "</span></li>").join("");
+    $("pyimports").textContent = py.imports.length ? "At the top of the Python program: " + py.imports.join("; ") : "";
+  }
+  if ($("pyon").getAttribute("aria-pressed") === "true" && !py) $("pyimports").textContent = "";
+}
+const stepAt = i => (i >= 0 ? result.steps[i] : null);
+function render() {
+  const s = stepAt(pos), prev = stepAt(pos - 1), ran = new Set(result.steps.slice(0, pos + 1).map(x => x.line));
+  const src = code.split("\n");
+  for (const ol of [$("code"), $("pycode")]) [...ol.children].forEach((li, i) => {
+    const n = i + 1, on = s && s.line === n, t = (src[i] || "").trim();
+    li.classList.toggle("on", Boolean(on)); li.classList.toggle("done", !on && ran.has(n));
+    li.classList.toggle("skip", pos === result.steps.length - 1 && !ran.has(n) && t !== "" && !/^END|^ELSE$/.test(t));
+    li.firstChild.textContent = on ? "▶" : "";
+    if (on) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+  });
+  const ex = $("explain");
+  if (result.syntax) { ex.className = "explain bad"; ex.textContent = "Syntax error on line " + result.syntax.line + ": " + result.syntax.message + ". The program cannot be translated, so none of it runs."; }
+  else if (!s) { ex.className = "explain"; ex.textContent = "Press Step to run the first line. Ask: what will it do?"; }
+  else if (s.error) { ex.className = "explain bad"; ex.textContent = s.error; }
+  else {
+    ex.className = "explain" + (pos === result.steps.length - 1 ? " good" : "");
+    ex.innerHTML = "<strong>Line " + s.line + ".</strong> " + esc(s.note) + (pos === result.steps.length - 1 ? " <strong>The program has finished.</strong>" : "");
+    if ($("work-on").checked) { const w = working(s, prev ? prev.vars : {}); if (w.length > 1) ex.innerHTML += '<div class="work">' + w.map(x => "<span>" + esc(x) + "</span>").join("") + "</div>"; }
+  }
+  if (prog.kind && pos === result.steps.length - 1 && !result.syntax) {
+    const ok = result.out.join("|") === prog.expect.join("|") && !result.crashed;
+    ex.innerHTML += "<div><strong>" + (ok ? "It now displays what was expected." : "Expected: " + esc(prog.expect.join(" / ")) + ". Is it a syntax, execution or logic error?") + "</strong></div>";
+  }
+  drawVars(s, prev);
+  const out = s ? s.out : [], before = prev ? prev.out.length : 0;
+  $("out").innerHTML = out.map((l, i) => '<div class="' + (i >= before && s && i < out.length ? "new" : "") + '">' + esc(l) + "</div>").join("");
+  drawQueue(); drawTraceRows();
+  $("back").disabled = pos < 0;
+  $("step").disabled = $("run").disabled = Boolean(result.syntax) || pos >= result.steps.length - 1;
+}
+function drawVars(s, prev) {
+  const vars = s ? s.vars : {}, box = $("vars"), at = s ? indexesUsed(s, prev ? prev.vars : {}) : {};
+  box.innerHTML = Object.keys(vars).length ? "" : '<span class="muted">No variables yet.</span>';
+  for (const k of Object.keys(vars)) {
+    const v = vars[k], d = document.createElement("div"), changed = !prev || JSON.stringify(prev.vars[k]) !== JSON.stringify(v);
+    d.className = "var" + (changed ? " changed" : "");
+    const t = (s.types || {})[k], ty = t ? '<small class="ty">' + esc(t) + "</small>" : "";
+    if (Array.isArray(v)) d.innerHTML = "<b>" + esc(k) + "</b>" + ty + "<div class=\"arr\">" + v.map((x, i) => '<span class="' + (at[k] && at[k].has(i) ? "at" : "") + '"><i>' + i + "</i>" + esc(showQ(x)) + "</span>").join("") + "</div>";
+    else d.innerHTML = "<b>" + esc(k) + "</b>" + ty + esc(showQ(v));
+    box.appendChild(d);
+  }
+}
+function drawQueue() {
+  const used = result.steps.slice(0, pos + 1).filter(x => /^The user types /.test(x.note)).length;
+  $("inputs-panel").hidden = !/RECEIVE/.test(code);
+  $("queue").innerHTML = inputs.length ? inputs.map((v, i) => '<span class="' + (i < used ? "used" : i === used ? "next" : "") + '">' + esc(v) + "</span>").join("") : '<span class="muted">No values yet.</span>';
+  $("inputs").value = inputs.join(", ");
+}
+
+/* ---------- The working for a line: values put in, then the result ---------- */
+const PREC = { OR: 1, AND: 2, "=": 3, "!=": 3, "<": 3, ">": 3, "<=": 3, ">=": 3, "&": 4, "+": 5, "-": 5, "*": 6, "/": 6, "^": 7 };
+// Print an expression; sub(e) may return replacement text for a node (or undefined to print it normally).
+function print(e, sub) {
+  const r = sub(e); if (r !== undefined) return { s: r, p: 9 };
+  const w = (x, p) => (x.p < p ? "(" + x.s + ")" : x.s);
+  switch (e.k) {
+    case "lit": return { s: showQ(e.v), p: 9 };
+    case "var": return { s: e.name, p: 9 };
+    case "list": return { s: "[" + e.items.map(x => print(x, sub).s).join(", ") + "]", p: 9 };
+    case "index": return { s: e.name + "[" + print(e.ix, sub).s + "]", p: 9 };
+    case "neg": return { s: "-" + w(print(e.a, sub), 8), p: 8 };
+    case "not": return { s: "NOT(" + print(e.a, sub).s + ")", p: 9 };
+    case "call": return { s: e.name + "(" + e.args.map(x => print(x, sub).s).join(", ") + ")", p: 9 };
+    case "bin": { const p = PREC[e.op], a = print(e.a, sub), b = print(e.b, sub);
+      return { s: w(a, p) + " " + e.op + " " + w(b, e.op === "-" || e.op === "/" ? p + 1 : p), p }; }
+  }
+  return { s: "?", p: 9 };
+}
+function lineExprs(text) {
+  const s = text.trim(); let m;
+  if ((m = /^DECLARE\s+\w+\s+INITIALLY\s+(.+)$/.exec(s)) || (m = /^SET\s+\w+(?:\[.+\])?\s+TO\s+(.+)$/.exec(s)) || (m = /^SEND\s+(.+)\s+TO\s+DISPLAY$/.exec(s))) return { e: m[1], kind: "value" };
+  if ((m = /^(?:ELSE\s+)?IF\s+(.+)\s+THEN$/.exec(s)) || (m = /^WHILE\s+(.+)\s+DO$/.exec(s)) || (m = /^UNTIL\s+(.+)$/.exec(s))) return { e: m[1], kind: "cond" };
+  return null;
+}
+function working(s, before) {
+  const le = lineExprs(code.split("\n")[s.line - 1] || "");
+  if (!le || /skipped/.test(s.note) || /random\(/i.test(le.e)) return [];   // random would give a different number here
+  try {
+    const e = parseExpr(le.e), out = [print(e, () => undefined).s];
+    if (e.k === "lit") return [];
+    // Values put in for variables and array items.
+    const vals = print(e, x => x.k === "var" ? showQ(evalExpr(x, before)) : x.k === "index" ? showQ(evalExpr(x, before)) : undefined).s;
+    if (vals !== out[0]) out.push(vals);
+    // For AND, OR and NOT: each comparison worked out first.
+    if (le.kind === "cond" && /^(AND|OR)$/.test(e.op || "") || e.k === "not") {
+      const parts = print(e, x => (x.k === "bin" && PREC[x.op] === 3) || (x.k === "var" && typeof before[x.name] === "boolean") ? show(evalExpr(x, before)) : undefined).s;
+      if (parts !== out[out.length - 1]) out.push(parts);
+    }
+    const v = showQ(evalExpr(e, before)), last = le.kind === "cond" ? show(Boolean(evalExpr(e, before))) : v;
+    if (last !== out[out.length - 1]) out.push(last);
+    return out;
+  } catch (err) { return []; }
+}
+function indexesUsed(s, before) {
+  const le = lineExprs(code.split("\n")[s.line - 1] || ""), at = {};
+  const add = (n, i) => { (at[n] = at[n] || new Set()).add(i); };
+  const walk = e => { if (!e || typeof e !== "object") return; if (e.k === "index") { try { add(e.name, evalExpr(e.ix, before)); } catch (x) { /* not used */ } }
+    for (const k of ["a", "b", "ix", "e"]) walk(e[k]); (e.items || e.args || []).forEach(walk); };
+  try { if (le) walk(parseExpr(le.e)); } catch (x) { /* nothing to mark */ }
+  const m = /^SET\s+(\w+)\[(.+)\]\s+TO/.exec((code.split("\n")[s.line - 1] || "").trim());
+  if (m) try { add(m[1], evalExpr(parseExpr(m[2]), before)); } catch (x) { /* nothing to mark */ }
+  return at;
+}
+
+/* ---------- Trace table ---------- */
+let traceCols = [];
+function drawTraceHead() {
+  traceCols = [];
+  for (const s of result.steps) for (const k of Object.keys(s.vars)) if (!traceCols.includes(k)) traceCols.push(k);
+  const rows = result.steps.map((s, i) => {
+    const p = stepAt(i - 1), pv = p ? p.vars : {}, newOut = s.out.slice(p ? p.out.length : 0);
+    const cells = traceCols.map(k => { const ch = k in s.vars && JSON.stringify(pv[k]) !== JSON.stringify(s.vars[k]); return [ch, k in s.vars ? showQ(s.vars[k]) : ""]; });
+    return { i, line: s.line, cells, out: newOut.join(" / "), any: cells.some(c => c[0]) || newOut.length > 0 || Boolean(s.error) };
+  });
+  $("trace").innerHTML = result.steps.length ? '<table><thead><tr><th scope="col">Line</th>' + traceCols.map(k => '<th scope="col">' + esc(k) + "</th>").join("") + '<th scope="col">Display</th></tr></thead><tbody>' +
+    rows.map(r => '<tr data-i="' + r.i + '" data-any="' + r.any + '"><td>' + r.line + "</td>" + r.cells.map(([ch, v]) => '<td class="' + (ch ? "ch" : "") + '">' + (ch ? esc(v) : "") + "</td>").join("") + "<td>" + esc(r.out) + "</td></tr>").join("") + "</tbody></table>"
+    : '<p class="muted">Nothing has run.</p>';
+}
+function drawTraceRows() {
+  const all = $("trace-all").checked, changes = $("trace-changes").checked;
+  let current = null;
+  $("trace").querySelectorAll("tbody tr").forEach(tr => {
+    const i = Number(tr.dataset.i);
+    tr.classList.toggle("future", !all && i > pos);
+    tr.hidden = changes && tr.dataset.any !== "true";
+    tr.classList.toggle("on", i === pos);
+    if (i === pos) current = tr;
+  });
+  if (current && !current.hidden) { const box = $("trace"); if (current.offsetTop > box.scrollTop + box.clientHeight - 40 || current.offsetTop < box.scrollTop + 30) box.scrollTop = current.offsetTop - box.clientHeight / 2; }
+}
+
+/* ---------- Stepping, predicting, running ---------- */
+function step() {
+  if (!$("predict").hidden) return reveal();
+  if (pos >= result.steps.length - 1) return stop();
+  const next = result.steps[pos + 1], shown = pos >= 0 ? result.steps[pos].out.length : 0;
+  if (!timer && $("predict-on").checked && revealed !== pos + 1 && !next.error && next.out.length > shown) {
+    $("predict").hidden = false; $("predict-q").textContent = "Predict first: what will line " + next.line + " display?";
+    $("step").disabled = true; $("predict-go").focus(); return;
+  }
+  pos++; render();
+  if (pos >= result.steps.length - 1) stop();
+}
+function reveal() { $("predict").hidden = true; revealed = pos + 1; pos++; render(); $("step").focus(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("run").setAttribute("aria-pressed", "false"); $("run").textContent = "Run"; }
+function toggleRun() {
+  if (timer) return stop();
+  if (pos >= result.steps.length - 1) { pos = -1; revealed = -1; }
+  $("predict").hidden = true; $("run").setAttribute("aria-pressed", "true"); $("run").textContent = "Pause";
+  step(); timer = setInterval(step, Number($("speed").value));
+}
+function back() { stop(); $("predict").hidden = true; if (pos >= 0) { pos--; render(); } }
+
+/* ---------- Match the lines: the same program in both languages, paired up ---------- */
+let mPairs = [], mPicked = null, mDone = 0;
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function buildMatch() {
+  if ($("matchbox").hidden) return;
+  mPairs = []; mPicked = null; mDone = 0;
+  if (!py) { $("m-ref").innerHTML = $("m-py").innerHTML = ""; $("m-msg").className = "msg bad";
+    $("m-msg").textContent = "This program cannot be translated, so there is nothing to match."; return; }
+  code.split("\n").forEach((line, i) => {
+    const ref = line.trim(), pyl = (py.lines[i] || "").trim().split("\n").pop().trim();   // REPEAT has two Python lines: match on the loop line
+    if (ref && pyl) mPairs.push({ i, ref, py: pyl });          // END lines have no Python line of their own
+  });
+  const draw = (id, items, side) => { $(id).innerHTML = items.map(x =>
+    '<li><button type="button" data-side="' + side + '" data-i="' + x.i + '">' + (side === "ref" ? '<span class="n">' + (x.i + 1) + "</span>" : "") +
+    esc(x.text) + "</button></li>").join(""); };
+  draw("m-ref", mPairs.map(x => ({ i: x.i, text: x.ref })), "ref");
+  draw("m-py", shuffle(mPairs).map(x => ({ i: x.i, text: x.py })), "py");
+  $("m-msg").className = "msg";
+  $("m-msg").textContent = mPairs.length ? mPairs.length + " lines to match." : "This program has no lines to match.";
+}
+function matchClick(b) {
+  if (b.classList.contains("done")) return;
+  document.querySelectorAll(".match button.wrong").forEach(x => x.classList.remove("wrong"));
+  if (!mPicked) { mPicked = b; b.setAttribute("aria-pressed", "true");
+    $("m-msg").className = "msg"; $("m-msg").textContent = "Now choose the line that does the same thing on the other side."; return; }
+  if (mPicked === b) { mPicked = null; b.setAttribute("aria-pressed", "false"); return; }
+  if (mPicked.dataset.side === b.dataset.side) { mPicked.setAttribute("aria-pressed", "false"); mPicked = b; b.setAttribute("aria-pressed", "true"); return; }
+  const ok = mPicked.dataset.i === b.dataset.i, pair = mPairs.find(x => String(x.i) === (ok ? b.dataset.i : (mPicked.dataset.side === "ref" ? mPicked.dataset.i : b.dataset.i)));
+  mPicked.setAttribute("aria-pressed", "false");
+  if (ok) {
+    mPicked.classList.add("done"); b.classList.add("done"); mDone++;
+    $("m-msg").className = "msg good";
+    $("m-msg").textContent = "Yes: line " + (pair.i + 1) + ". " + mDone + " of " + mPairs.length + " matched." + (mDone === mPairs.length ? " All done." : "");
+  } else {
+    mPicked.classList.add("wrong"); b.classList.add("wrong");
+    $("m-msg").className = "msg bad";
+    $("m-msg").textContent = "Not a pair. Read the reference-language line again: " + pair.ref;
+  }
+  mPicked = null;
+}
+$("matchbox").addEventListener("click", e => { const b = e.target.closest("button[data-side]"); if (b) matchClick(b); });
+$("m-again").addEventListener("click", buildMatch);
+$("matchon").addEventListener("click", e => {
+  const on = e.target.getAttribute("aria-pressed") !== "true";
+  e.target.setAttribute("aria-pressed", String(on)); $("matchbox").hidden = !on;
+  if (on) { buildMatch(); $("matchbox").scrollIntoView({ block: "nearest" }); }
+});
+$("prog").addEventListener("change", e => { load(e.target.value); $("step").focus(); });   // so the arrow keys step straight away
+$("step").addEventListener("click", step);
+$("back").addEventListener("click", back);
+$("run").addEventListener("click", toggleRun);
+$("reset").addEventListener("click", reset);
+$("predict-go").addEventListener("click", reveal);
+$("speed").addEventListener("change", () => { if (timer) { clearInterval(timer); timer = setInterval(step, Number($("speed").value)); } });
+$("work-on").addEventListener("change", render);
+$("predict-on").addEventListener("change", () => { if (!$("predict-on").checked && !$("predict").hidden) { $("predict").hidden = true; render(); } });
+$("trace-all").addEventListener("change", drawTraceRows);
+$("trace-changes").addEventListener("change", drawTraceRows);
+$("errshow").addEventListener("click", () => { $("errkind").hidden = false; $("errshow").hidden = true; });
+$("pyon").addEventListener("click", e => { e.target.setAttribute("aria-pressed", String(e.target.getAttribute("aria-pressed") !== "true")); drawCode(); render(); });
+$("edit").addEventListener("click", e => { const on = e.target.getAttribute("aria-pressed") !== "true"; e.target.setAttribute("aria-pressed", String(on)); $("editbox").hidden = !on; if (on) { $("src").value = code; $("src").focus(); } });
+$("apply").addEventListener("click", () => { code = $("src").value; reset(); });
+$("inputs-go").addEventListener("click", () => { inputs = $("inputs").value.split(",").map(s => s.trim()).filter(s => s !== ""); reset(); });
+$("inputs").addEventListener("keydown", e => { if (e.key === "Enter") $("inputs-go").click(); });
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input:not([type=checkbox]), textarea, select") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === " " && e.target.matches("input[type=checkbox]")) return;
+  if (e.key === " " || e.key === "ArrowRight") { if (e.target.closest("button") && e.key === " ") return; e.preventDefault(); step(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); back(); }
+  else if (e.key === "p" || e.key === "P") toggleRun();
+  else if (e.key === "r" || e.key === "R") reset();
+});
+load(location.hash.slice(1) || "0.0");
+</script>
+</body>
+</html>
