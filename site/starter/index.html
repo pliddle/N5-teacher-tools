@@ -198,9 +198,11 @@ function draw(q) {
   } else if (q.type === "num" || q.type === "short") {
     body = '<div class="answer">Answer: <span class="box" id="ans">?</span></div>';
   } else if (q.type === "match") {
-    view.right = shuffle(q.pairs.map(p => p[1]));
+    // Shuffle the pair *indexes*, not the right-hand text: two pairs can share the same right-hand text
+    // (several terms matching one definition), and matching text back to a pair would pick the wrong one.
+    view.rightOrder = shuffle(q.pairs.map((p, i) => i));
     body = '<div class="pairs"><ol>' + q.pairs.map((p, i) => "<li><b>" + (i + 1) + "</b><span>" + p[0] + "</span></li>").join("") + '</ol><ol id="rights">' +
-      view.right.map((r, i) => "<li><b>" + LETTERS[i] + "</b><span>" + esc(r) + "</span></li>").join("") + "</ol></div>";
+      view.rightOrder.map((pi, i) => "<li><b>" + LETTERS[i] + "</b><span>" + esc(q.pairs[pi][1]) + "</span></li>").join("") + "</ol></div>";
   } else if (q.type === "order") {
     view.items = shuffle(q.order);
     if (view.items.join() === q.order.join() && q.order.length > 1) view.items.push(view.items.shift());
@@ -227,7 +229,12 @@ function reveal() {
   } else if (q.type === "short") {
     $("ans").textContent = q.short.join("  or  "); $("ans").classList.add("right"); confetti($("ans"));
   } else if (q.type === "match") {
-    $("rights").innerHTML = q.pairs.map((p, i) => '<li class="right"><b>' + LETTERS[view.right.indexOf(p[1])] + "</b><span>" + esc(p[1]) + "</span></li>").join("");
+    // Leave the right-hand items where they are (jumping them into number order is more confusing, not less):
+    // just swap each one's shuffled letter for the number of the left-hand item it actually matches.
+    document.querySelectorAll("#rights li").forEach((li, i) => {
+      li.classList.add("right");
+      li.querySelector("b").textContent = view.rightOrder[i] + 1;
+    });
   } else if (q.type === "order") {
     $("orderlist").innerHTML = q.order.map(t => '<li class="right"><b>' + LETTERS[view.items.indexOf(t)] + "</b><span>" + t + "</span></li>").join("");
   } else if (q.type === "gaps") {
