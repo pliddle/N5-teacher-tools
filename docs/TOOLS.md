@@ -22,7 +22,7 @@ Pick a unit, topics, Set 1 and/or 2, C and/or A, and the kinds of question. One 
 timer: the teacher shows the answer (Space), then the next question (Space again; arrows go back and forward). The
 reveal marks the right option, says why each wrong option is wrong (can be switched off), and shows the general
 feedback with the examiners'-report note. All eight question types are shown: matching reveals the pairs,
-ordering the order, fill-the-gaps fills the gaps.
+ordering the order, fill-the-gaps fills the gaps (numbered 1, 2, 3 in order). A matching question whose items share answers (TRUE/FALSE) lists each answer once and the reveal fills a blank beside every item.
 - **Use it for:** a 5-minute starter; "convince your partner" before revealing; retrieval of last week's topic.
 - **Limits:** about 45 SQL questions with large tables are too tall for a 1280x720 screen and scroll. Long code
   questions go side by side with their answers on wide screens.

@@ -198,19 +198,30 @@ function draw(q) {
   } else if (q.type === "num" || q.type === "short") {
     body = '<div class="answer">Answer: <span class="box" id="ans">?</span></div>';
   } else if (q.type === "match") {
-    // Shuffle the pair *indexes*, not the right-hand text: two pairs can share the same right-hand text
-    // (several terms matching one definition), and matching text back to a pair would pick the wrong one.
+    const uniq = [...new Set(q.pairs.map(p => p[1]))];
+    if (uniq.length < q.pairs.length) {
+      // Few answers shared by several items (TRUE/FALSE, a type of error): a lettered list of repeats looks identical
+      // and cannot be told apart, so show each answer once and give every item a blank to fill.
+      view.dup = true;
+      body = '<div class="pairs" style="grid-template-columns:minmax(0,1fr)"><ol>' + q.pairs.map((p, i) => "<li><b>" + (i + 1) + "</b><span>" + p[0] + '</span><span class="gap" data-slot="' + i + '">?</span></li>').join("") + "</ol></div>" +
+        '<div class="gapopts">Choose from: ' + shuffle(uniq).map(t => "<span>" + esc(t) + "</span>").join("") + "</div>";
+    } else {
+    // Shuffle the pair *indexes*, not the right-hand text, so matching back to a pair never picks the wrong one.
     view.rightOrder = shuffle(q.pairs.map((p, i) => i));
     body = '<div class="pairs"><ol>' + q.pairs.map((p, i) => "<li><b>" + (i + 1) + "</b><span>" + p[0] + "</span></li>").join("") + '</ol><ol id="rights">' +
       view.rightOrder.map((pi, i) => "<li><b>" + LETTERS[i] + "</b><span>" + esc(q.pairs[pi][1]) + "</span></li>").join("") + "</ol></div>";
+    }
   } else if (q.type === "order") {
     view.items = shuffle(q.order);
     if (view.items.join() === q.order.join() && q.order.length > 1) view.items.push(view.items.shift());
     body = '<div class="pairs" style="grid-template-columns:minmax(0,1fr)"><ol id="orderlist">' + view.items.map((t, i) => "<li><b>" + LETTERS[i] + "</b><span>" + t + "</span></li>").join("") + "</ol></div>";
   } else if (q.type === "gaps") {
-    qhtml = qhtml.replace(/\[\[(\d+)\]\]/g, (m, n) => '<span class="gap" data-gap="' + n + '">(' + n + ")</span>");
+    // Moodle numbers a gap by its place in the whole list of choices (1, 4, 7), so show the gaps as 1, 2, 3 in order.
+    const order = [...q.q.matchAll(/\[\[(\d+)\]\]/g)].map(m => Number(m[1]));
+    const label = n => order.indexOf(Number(n)) + 1;
+    qhtml = qhtml.replace(/\[\[(\d+)\]\]/g, (m, n) => '<span class="gap" data-gap="' + n + '">(' + label(n) + ")</span>");
     const groups = [...new Set(q.choices.map(c => c.g))];
-    const gapsIn = g => [...q.q.matchAll(/\[\[(\d+)\]\]/g)].map(m => Number(m[1])).filter(n => q.choices[n - 1].g === g);
+    const gapsIn = g => order.filter(n => q.choices[n - 1].g === g).map(label);
     body = '<div class="gapopts">' + groups.map(g => "<div>" + (groups.length > 1 ? "Gap" + (gapsIn(g).length > 1 ? "s " : " ") + gapsIn(g).join(", ") + ": " : "Options: ") +
       shuffle(q.choices.filter(c => c.g === g)).map(c => "<span>" + esc(c.t) + "</span>").join("") + "</div>").join("") + "</div>";
   }
@@ -228,6 +239,8 @@ function reveal() {
     $("ans").textContent = show(q.num.v) + (q.num.tol ? " (± " + show(q.num.tol) + ")" : ""); $("ans").classList.add("right"); confetti($("ans"));
   } else if (q.type === "short") {
     $("ans").textContent = q.short.join("  or  "); $("ans").classList.add("right"); confetti($("ans"));
+  } else if (q.type === "match" && view.dup) {
+    document.querySelectorAll("[data-slot]").forEach(e => { e.textContent = q.pairs[Number(e.dataset.slot)][1]; e.classList.add("filled"); });
   } else if (q.type === "match") {
     // Leave the right-hand items where they are (jumping them into number order is more confusing, not less):
     // just swap each one's shuffled letter for the number of the left-hand item it actually matches.
